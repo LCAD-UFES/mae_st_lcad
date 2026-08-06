@@ -1,0 +1,5 @@
+checkpoints/
+output_visualizations/
+*.pyc
+*.pyo
+*~

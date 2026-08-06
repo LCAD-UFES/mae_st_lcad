@@ -1,0 +1,14 @@
+name: kinetics
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pandas
+  - numpy
+  - joblib
+  - ffmpeg
+  - pip
+  - pip:
+      - yt-dlp
+      - decorator
