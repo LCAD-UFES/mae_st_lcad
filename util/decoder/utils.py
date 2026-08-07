@@ -1,6 +1,4 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-
+#!/usr/bin/env python3
 
 import logging
 import os
@@ -12,7 +10,7 @@ import cv2
 import numpy as np
 import torch
 
-# from mae_st.util.env import checkpoint_pathmgr as pathmgr
+# from mae.util.env import checkpoint_pathmgr as pathmgr
 from iopath.common.file_io import g_pathmgr as pathmgr
 from torch.utils.data.distributed import DistributedSampler
 

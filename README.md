@@ -23,10 +23,22 @@ Another implementation that supports AVA and SSv2 downstream evaluation is avail
 
 
 ### Catalog
-
+- [x] Preparing virtual environment
 - [x] Visualization demo
 - [x] Pre-trained checkpoints + fine-tuning code + testing code
 - [x] Pre-training code
+
+
+### Preparing virtual environment
+
+#### The host's CUDA version must be 12.8; to check, run the command below:
+
+```
+nvcc --version
+```
+If the version differs from the required one, follow the [CUDA_128_INSTALLATION_TUTORIAL.md](CUDA_128_INSTALLATION_TUTORIAL.md).
+
+The Virtual environment setup instruction is in [INSTALL.md](INSTALL.md).
 
 ### Visualization demo
 

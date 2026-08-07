@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import math
 
@@ -139,7 +137,6 @@ def random_crop(images, size, boxes=None):
     if width > size:
         x_offset = int(np.random.randint(0, width - size))
     cropped = images[:, :, y_offset : y_offset + size, x_offset : x_offset + size]
-    return cropped
 
     cropped_boxes = crop_boxes(boxes, x_offset, y_offset) if boxes is not None else None
 
@@ -168,7 +165,6 @@ def horizontal_flip(prob, images, boxes=None):
 
     if np.random.uniform() < prob:
         images = images.flip((-1))
-    return images
 
         if len(images.shape) == 3:
             width = images.shape[2]
