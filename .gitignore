@@ -1,4 +1,5 @@
 checkpoints/
+results/
 output_visualizations/
 *.pyc
 *.pyo
