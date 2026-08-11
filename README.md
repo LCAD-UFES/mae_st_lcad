@@ -31,16 +31,16 @@ Another implementation that supports AVA and SSv2 downstream evaluation is avail
 
 ### Preparing virtual environment
 
-## Run these commands to create the conda environment:
+#### Run these commands to create the conda environment:
 
 
-### If your CUDA version is 11.7
+#### If your CUDA version is 11.7
 ```
 chmod +x create_venv_cu117.sh
 ./create_venv_cu117.sh
 ```
 
-### If your CUDA version is 12.8
+#### If your CUDA version is 12.8
 ```
 chmod +x create_venv_cu128.sh
 ./create_venv_cu128.sh
