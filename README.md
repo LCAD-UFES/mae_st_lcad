@@ -29,14 +29,14 @@ Another implementation that supports AVA and SSv2 downstream evaluation is avail
 - [x] Pre-training code
 
 
-### Preparing virtual environment
+<!-- ### Preparing virtual environment
 
 #### The host's CUDA version must be 12.8; to check, run the command below:
 
 ```
 nvcc --version
 ```
-If the version differs from the required one, follow the [CUDA_128_INSTALLATION_TUTORIAL.md](CUDA_128_INSTALLATION_TUTORIAL.md).
+If the version differs from the required one, follow the [CUDA_128_INSTALLATION_TUTORIAL.md](CUDA_128_INSTALLATION_TUTORIAL.md). -->
 
 The Virtual environment setup instruction is in [INSTALL.md](INSTALL.md).
 
@@ -47,7 +47,6 @@ Run our visualization demo using:
 ```
 python visualize_video.py --video_path demo/qZ_lFjCiR1c_000104_000114.avi --checkpoint checkpoints/video-mae-200x4-nonorm.pth --mask_ratio 0.95 --output_path results/qZ_lFjCiR1c_000104_000114.avi
 ```
-
 
 Visualization of MAE output with 95% (left) and 98% (right) mask rate on the same video.
 <div align="center">
