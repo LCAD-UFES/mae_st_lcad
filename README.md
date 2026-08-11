@@ -31,6 +31,21 @@ Another implementation that supports AVA and SSv2 downstream evaluation is avail
 
 ### Preparing virtual environment
 
+## Run these commands to create the conda environment:
+
+
+### If your CUDA version is 11.7
+```
+chmod +x create_venv_cu117.sh
+./create_venv_cu117.sh
+```
+
+### If your CUDA version is 12.8
+```
+chmod +x create_venv_cu128.sh
+./create_venv_cu128.sh
+```
+
 <!-- #### The host's CUDA version must be 12.8; to check, run the command below:
 
 ```
@@ -38,7 +53,7 @@ nvcc --version
 ```
 If the version differs from the required one, follow the [CUDA_128_INSTALLATION_TUTORIAL.md](CUDA_128_INSTALLATION_TUTORIAL.md). -->
 
-The Virtual environment setup instruction is in [INSTALL.md](INSTALL.md).
+<!-- The Virtual environment setup instruction is in [INSTALL.md](INSTALL.md). -->
 
 ### Visualization demo
 
