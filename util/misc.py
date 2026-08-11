@@ -19,15 +19,18 @@ from collections import defaultdict, deque
 from pathlib import Path
 from torchvision.utils import save_image
 
-import mae_st.util.logging as logging
+import util.logging as logging
 import psutil
 import torch
 import torch.distributed as dist
-import torch.fb.rendezvous.zeus
+try:
+  import torch.fb.rendezvous.zeus
+except ModuleNotFoundError:
+  pass
 from iopath.common.file_io import g_pathmgr as pathmgr
-from mae_st.util.logging import master_print as print
+from util.logging import master_print as print
 from matplotlib import pyplot as plt
-from torch._six import inf
+from math import inf
 
 
 logger = logging.get_logger(__name__)
@@ -244,7 +247,7 @@ def save_on_master(state, path):
 
 
 def init_distributed_mode(args):
-    if args.fb_env:
+    if getattr(args, "fb_env", False):
         pass
     elif args.dist_on_itp:
         args.rank = int(os.environ["OMPI_COMM_WORLD_RANK"])

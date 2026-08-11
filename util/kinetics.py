@@ -9,7 +9,7 @@ import torch.utils.data
 
 # from mae_st.util.env import checkpoint_pathmgr as pathmgr
 from iopath.common.file_io import g_pathmgr as pathmgr
-from mae_st.util.decoder.decoder import get_start_end_idx, temporal_sampling
+from util.decoder.decoder import get_start_end_idx, temporal_sampling
 from pytorchvideo.transforms import (
     ApplyTransformToKey,
     RandomShortSideScale,
@@ -77,7 +77,7 @@ class Kinetics(torch.utils.data.Dataset):
         pretrain_rand_erase_mode="pixel",
         pretrain_rand_erase_count=1,
         pretrain_rand_erase_split=False,
-        rand_aug=False,
+        rand_aug=False, **kwargs
     ):
         """
         Construct the Kinetics video loader with a given csv file. The format of

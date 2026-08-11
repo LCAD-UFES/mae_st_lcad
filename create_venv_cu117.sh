@@ -16,6 +16,7 @@ pip install "setuptools<70.0.0" wheel
 pip install --no-build-isolation "detectron2 @ git+https://github.com/facebookresearch/detectron2.git@b4a4a3bd136852dae5fb1de37978dee412653e31"
 pip install opencv-python
 pip install "numpy<2" --force-reinstall
+pip install psutil
 mkdir checkpoints
 mkdir results
 wget 'https://dl.fbaipublicfiles.com/video-mae-200x4-nonorm.pth' -O checkpoints/video-mae-200x4-nonorm.pth

@@ -9,7 +9,11 @@ try:
     from iopath.fb.everstore import EverstorePathHandler
 except ModuleNotFoundError:
     EverstorePathHandler = None
-from iopath.fb.manifold import ManifoldPathHandler
+# MUDE PARA:
+try:
+  from iopath.fb.manifold import ManifoldPathHandler
+except ModuleNotFoundError:
+  ManifoldPathHandler = None
 
 _ENV_SETUP_DONE = False
 _MEMCACHE_KEY_PREFIX = "pyslowfast"
