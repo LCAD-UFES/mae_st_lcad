@@ -7,11 +7,11 @@ import cv2
 import av
 
 # Append necessary paths
-sys.path.append('..')
+# sys.path.append('..')
 sys.path.append('.')
 sys.path.append('./slowfast')
 
-from mae.models_mae import mae_vit_large_patch16
+from models_mae import mae_vit_large_patch16
 from util.decoder.utils import tensor_normalize, spatial_sampling
 
 MEAN = (0.45, 0.45, 0.45)

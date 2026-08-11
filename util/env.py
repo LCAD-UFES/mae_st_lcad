@@ -4,7 +4,11 @@
 """Set up Environment."""
 
 from iopath.common.file_io import PathManagerFactory
-from iopath.fb.everstore import EverstorePathHandler
+# from iopath.fb.everstore import EverstorePathHandler
+try:
+    from iopath.fb.everstore import EverstorePathHandler
+except ModuleNotFoundError:
+    EverstorePathHandler = None
 from iopath.fb.manifold import ManifoldPathHandler
 
 _ENV_SETUP_DONE = False

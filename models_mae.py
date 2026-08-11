@@ -11,13 +11,13 @@
 
 from functools import partial
 
-import mae_st.util.logging as logging
+import util.logging as logging
 import timm
 import torch
 import torch.nn as nn
-from mae_st.util import video_vit
-from mae_st.util.logging import master_print as print
-from mae_st.util.pos_embed import get_3d_sincos_pos_embed
+from util import video_vit
+from util.logging import master_print as print
+from util.pos_embed import get_3d_sincos_pos_embed
 from timm.models.vision_transformer import PatchEmbed, Block
 
 
@@ -50,15 +50,12 @@ class MaskedAutoencoderViT(nn.Module):
         learnable_pos_embed=False,
         sep_pos_embed=False,
         trunc_init=False,
-        pred_t_dim=8,
         **kwargs,
     ):
         super().__init__()
         self.trunc_init = trunc_init
         self.sep_pos_embed = sep_pos_embed
         self.embed_dim = embed_dim
-        self.pred_t_dim = pred_t_dim
-        self.t_pred_patch_size = t_patch_size * pred_t_dim // num_frames
 
         encoder_attn_func = video_vit.__dict__[encoder_attn]
         decoder_attn_func = video_vit.__dict__[decoder_attn]
@@ -164,7 +161,7 @@ class MaskedAutoencoderViT(nn.Module):
 
         self.decoder_norm = norm_layer(decoder_embed_dim)
         self.decoder_pred = nn.Linear(
-            decoder_embed_dim, self.t_pred_patch_size * patch_size ** 2 * in_chans, bias=True
+            decoder_embed_dim, t_patch_size * patch_size ** 2 * in_chans, bias=True
         )  # decoder to patch
         # --------------------------------------------------------------------------
 
@@ -241,7 +238,7 @@ class MaskedAutoencoderViT(nn.Module):
         """
         N, _, T, H, W = imgs.shape
         p = self.patch_embed.patch_size[0]
-        u = self.t_pred_patch_size
+        u = self.patch_embed.t_patch_size
         assert H == W and H % p == 0 and T % u == 0
         h = w = H // p
         t = T // u
@@ -425,18 +422,7 @@ class MaskedAutoencoderViT(nn.Module):
         pred: [N, t*h*w, u*p*p*3]
         mask: [N*t, h*w], 0 is keep, 1 is remove,
         """
-        _imgs = torch.index_select(
-            imgs,
-            2,
-            torch.linspace(
-                0,
-                imgs.shape[2] - 1,
-                self.pred_t_dim,
-            )
-            .long()
-            .to(imgs.device),
-        )
-        target = self.patchify(_imgs)
+        target = self.patchify(imgs)
         if visualize:
             self.target = target
         if self.norm_pix_loss:
@@ -464,38 +450,14 @@ class MaskedAutoencoderViT(nn.Module):
 
         if visualize:
             N, T, H, W, p, u, t, h, w = self.patch_info
-            
-            if self.norm_pix_loss:
-                # Separate channels to compute mean and variance per-channel independently.
-                target_channels = self.target.view(self.target.shape[0], self.target.shape[1], -1, 3)
-                mean = target_channels.mean(dim=-2, keepdim=True)
-                var = target_channels.var(dim=-2, keepdim=True)
-                
-                pred_channels = pred.view(pred.shape[0], pred.shape[1], -1, 3)
-                pred_denorm_channels = pred_channels * (var + 1.0e-6) ** 0.5 + mean
-                pred_denorm = pred_denorm_channels.view(pred.shape[0], pred.shape[1], -1)
-            else:
-                pred_denorm = pred
+            pred = pred
 
             reconstruct = self.unpatchify(
-                pred_denorm * mask.reshape(N, t * h * w, 1) + self.target * (1 - mask.reshape(N, t * h * w, 1))
+                pred * mask.reshape(N, t * h * w, 1) + self.target * (1 - mask.reshape(N, t * h * w, 1))
             )
             masked = self.unpatchify(self.target * (1 - mask.reshape(N, t * h * w, 1)))
-            
-            _imgs = torch.index_select(
-                imgs,
-                2,
-                torch.linspace(
-                    0,
-                    imgs.shape[2] - 1,
-                    self.pred_t_dim,
-                )
-                .long()
-                .to(imgs.device),
-            )
-            
             comparison = torch.stack(
-                [_imgs, masked, reconstruct],
+                [imgs, masked, reconstruct],
                 dim=1,
             )
             return loss, pred, mask, comparison

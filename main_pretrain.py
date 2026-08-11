@@ -13,18 +13,24 @@ import datetime
 import json
 import os
 import time
+import sys
 
-import mae_st.util.env
-import mae_st.util.misc as misc
+# Append necessary paths
+sys.path.append('..')
+sys.path.append('.')
+sys.path.append('./slowfast')
+
+import mae.util.env
+import mae.util.misc as misc
 import numpy as np
 import timm
 import torch
 import torch.backends.cudnn as cudnn
 from iopath.common.file_io import g_pathmgr as pathmgr
-from mae_st import models_mae
-from mae_st.engine_pretrain import train_one_epoch
-from mae_st.util.kinetics import Kinetics
-from mae_st.util.misc import NativeScalerWithGradNormCount as NativeScaler
+from mae import models_mae
+from mae.engine_pretrain import train_one_epoch
+from mae.util.kinetics import Kinetics
+from mae.util.misc import NativeScalerWithGradNormCount as NativeScaler
 from tensorboard.compat.tensorflow_stub.io.gfile import register_filesystem
 from torch.utils.tensorboard import SummaryWriter
 

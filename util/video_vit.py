@@ -1,4 +1,4 @@
-import mae_st.util.logging as logging
+import util.logging as logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
