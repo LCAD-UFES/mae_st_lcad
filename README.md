@@ -42,6 +42,12 @@ The Virtual environment setup instruction is in [INSTALL.md](INSTALL.md).
 
 ### Visualization demo
 
+Run our visualization demo using:
+
+```
+python visualize_video.py --video_path demo/qZ_lFjCiR1c_000104_000114.avi --checkpoint checkpoints/video-mae-200x4-nonorm.pth --mask_ratio 0.95 --output_path results/qZ_lFjCiR1c_000104_000114.avi
+```
+
 
 Visualization of MAE output with 95% (left) and 98% (right) mask rate on the same video.
 <div align="center">
@@ -60,11 +66,7 @@ Visualization of MAE output with 95% (left) and 98% (right) mask rate on the sam
   <img src="demo/mr-95-demo-vid-4.gif" width="400px"/> <img src="demo/mr-98-demo-vid-4.gif" width="400px"/>
 </div>
 
-Run our visualization demo using:
 
-```
-python visualize_video.py --video_path demo/qZ_lFjCiR1c_000104_000114.avi --checkpoint checkpoints/video-mae-200x4-nonorm.pth --mask_ratio 0.95 --output_path results/qZ_lFjCiR1c_000104_000114.avi
-```
 
 ### Fine-tuning with pre-trained checkpoints
 
