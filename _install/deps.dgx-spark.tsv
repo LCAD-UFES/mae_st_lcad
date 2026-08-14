@@ -1,0 +1,203 @@
+#	MAE-ST dependency manifest -- target host: NVIDIA DGX Spark (spark-e269)
+#
+#	Tab-separated. Read and executed by conda.sh, which lives next to this file.
+#	Lines starting with '#' are comments. Lines starting with '#!' are metadata
+#	parsed by the script (they are NOT comments to the script).
+#
+#	To target a different machine: copy this file to deps.<host>.tsv, edit the
+#	#!target line and the affected rows, then run
+#	    ./conda.sh deps.<host>.tsv
+#	No change to conda.sh should ever be needed to support a new host.
+#
+#	=========================================================================
+#	COLUMNS
+#	=========================================================================
+#	  stage      install order group; stages run in ascending order. Rows in
+#	             the same stage sharing installer+source+flags+required are
+#	             merged into ONE command, so co-dependent packages
+#	             (torch/torchvision) resolve together.
+#	  package    distribution name as the installer knows it
+#	  version    'latest' | exact ('0.4.5') | range ('>=2.7') | 'match-torch'
+#	             Ignored when the source names an artifact outright (direct=,
+#	             git=, local=) -- the URL already pins it.
+#	  arch       platform tag this row was VALIDATED on. Documentation, not a
+#	             filter. See WHEELS below.
+#	  installer  'conda' | 'pip'
+#	  source     where the package comes from. Grammar below.
+#	  flags      extra installer flags, '-' for none
+#	  required   'yes' aborts on failure, 'no' warns and continues
+#	  note       why this row exists / why this pin
+#
+#	=========================================================================
+#	SOURCE GRAMMAR
+#	=========================================================================
+#	A ';'-separated list of scheme=value pairs. Combine freely.
+#
+#	  pip
+#	    pypi                default index (adds nothing to the command)
+#	    index=<url>         --index-url <url>        REPLACES the default index
+#	    extra=<url>         --extra-index-url <url>  searched IN ADDITION
+#	    links=<url>         --find-links <url> -- an HTML page or directory
+#	                        listing .whl files. This is how vendor repos that
+#	                        are not PEP 503 indexes are consumed (NVIDIA's ARM
+#	                        wheel pages, an internal LCAD server, an NFS mount).
+#	    direct=<url>        install that exact artifact. Bypasses resolution
+#	                        entirely -- the URL IS the wheel.
+#	    git=<url>@<ref>     builds 'pkg @ git+<url>@<ref>'. Pin a tag or SHA,
+#	                        never a branch.
+#	    local=<path>        a .whl file or a directory on this machine
+#
+#	  conda
+#	    channel=<a>[,<b>]   -c a -c b, in the order written (order is priority).
+#	                        Values may be channel names or full URLs.
+#	    nodefaults          --override-channels
+#
+#	Examples -- commented out, none of these are installed:
+#
+#	30-core	torch	2.7.1	linux-aarch64	pip	direct=https://download.pytorch.org/whl/cu128/torch-2.7.1%2Bcu128-cp310-cp310-manylinux_2_28_aarch64.whl	-	yes	Exact artifact, no resolution.
+#	30-core	somepkg	latest	linux-aarch64	pip	links=https://pypi.example.org/arm64/	-	yes	Vendor wheel page that is not a PEP 503 index.
+#	30-core	otherpkg	latest	any	pip	index=https://download.pytorch.org/whl/cu128;extra=https://pypi.org/simple	-	yes	Custom index, falling back to PyPI for whatever is missing there.
+#	30-core	some_tool	-	any	pip	git=https://github.com/LCAD-UFES/some_tool.git@v1.2.0	-	yes	Pinned to a tag.
+#	00-env	cuda-nvcc	12.8	linux-aarch64	conda	channel=nvidia,conda-forge	-	yes	Two channels, nvidia first. Not needed here -- mae_st compiles nothing.
+#
+#	=========================================================================
+#	WHEELS -- why there is no 'wheel' column
+#	=========================================================================
+#	A wheel is a prebuilt Python package: a zip named
+#
+#	    torch-2.7.1-cp310-cp310-manylinux_2_28_aarch64.whl
+#	     name  version   py    abi      platform tag
+#
+#	There is one wheel per (python version x ABI x platform), NOT one per
+#	architecture -- torch 2.7.1 ships 24 files on PyPI for exactly that reason.
+#	Pure-Python packages ship a single 'py3-none-any' wheel (timm 0.4.5).
+#	Packages with no wheel at all ship an sdist and are compiled at install
+#	time (pytorchvideo 0.1.5).
+#
+#	pip computes this host's compatible tag set and picks the match. The wheel
+#	is therefore an OUTPUT of resolution, not an input -- a 'wheel' column
+#	would be recording a result as if it were a choice. What you actually pin
+#	is version + source. To pin the exact artifact anyway, use direct=.
+#
+#	Version alone does not identify a binary: torch 2.7.1 from PyPI and torch
+#	2.7.1 from download.pytorch.org/whl/cu128 are different builds against
+#	different CUDA runtimes. The source column carries that distinction, which
+#	is why it is not optional.
+#
+#	'cuda=' is the maximum runtime the DRIVER supports, as reported by
+#	nvidia-smi -- that is what conda.sh compares against, so the two must be
+#	the same quantity. It is NOT the installed toolkit: this host runs driver
+#	595.71.05 (CUDA 13.2) with nvcc 13.0 in /usr/local/cuda-13.0. The
+#	distinction does not matter for mae_st, which compiles nothing, but it
+#	will the moment a host needs a row that builds a CUDA extension.
+#
+#!target	os=ubuntu 24.04	arch=aarch64	sm=121	cuda=13.2	python=3.10.20	gpu=NVIDIA GB10
+#!envname	mae_st
+#!repo	https://github.com/LCAD-UFES/mae_st_lcad
+
+stage	package	version	arch	installer	source	flags	required	note
+00-env	python	3.10.20	any	conda	channel=conda-forge	-	yes	Pinned from the lock; upstream environment.yml says 3.10.20 too. timm 0.4.5 and pytorchvideo 0.1.5 predate 3.11. Changing this row changes every compiled wheel below.
+10-build	pip	26.2.1	any	pip	pypi	--upgrade	yes	Pinned from the lock. Old pip mis-resolves manylinux_2_28_aarch64 tags and silently falls back to building sdists. conda-forge already ships this exact version, so on this host --upgrade is a no-op; it stays for hosts whose base pip is older.
+10-build	setuptools	69.5.1	any	pip	pypi	-	yes	Pinned from the lock; was '<70'. setuptools>=81 dropped pkg_resources and old sdists (pytorchvideo) import it. torch 2.11 itself requires setuptools<82, so this sits inside both bounds.
+10-build	wheel	0.48.0	any	pip	pypi	-	yes	Pinned from the lock. Needed to build any sdist with --no-build-isolation. conda-forge's python already ships this version, so pip finds it satisfied.
+20-torch	torch	2.11.0+cu128	linux-aarch64	pip	index=https://download.pytorch.org/whl/cu128	-	yes	Pinned from the lock and validated on this host (verify ran matmul and Conv3d on the GPU). conda pytorch-cuda does NOT exist for linux-aarch64. The '+cu128' local version AND the index are both load-bearing: torch 2.11.0 from PyPI is a different binary. Its arch_list stops at sm_120, which covers this sm_121 GB10 through CUDA minor-version binary compatibility. This row also pins the whole CUDA stack: torch declares cuda-toolkit, cudnn, nccl and friends with exact ==.
+20-torch	torchvision	0.26.0+cu128	linux-aarch64	pip	index=https://download.pytorch.org/whl/cu128	-	yes	Pinned from the lock; was 'match-torch'. This build requires torch==2.11.0 exactly, so the pair is self-consistent. Kept in the same command as torch so pip resolves them together. torchaudio deliberately omitted -- nothing in the repo imports it.
+30-core	numpy	2.2.6	any	pip	pypi	-	yes	REVERSAL of a documented omission, on new evidence. util/video_vit.py:5 does 'from numpy.core.einsumfunc import _update_other_results' -- a PRIVATE numpy API. numpy 2 still serves it through a deprecation shim (verified on this exact version), but the shim will eventually go and the repo stops importing. The symbol is never used, so the clean fix is deleting that import line; until someone does, this pin is what keeps the repo importable. This is NOT the old 1.23.5 pin, which was wrong for other reasons.
+30-core	timm	0.4.5	any	pip	pypi	-	yes	DO NOT BUMP. util/video_vit.py imports timm.models.layers (moved to timm.layers in 0.9) and subclasses Attention passing qk_scale (removed in 0.9). Ships py3-none-any, so no arch risk. Confirmed importable on this host.
+30-core	iopath	0.1.9	any	pip	pypi	-	yes	g_pathmgr, used by kinetics.py, misc.py, engine_pretrain.py and main_pretrain.py.
+30-core	simplejson	4.1.1	any	pip	pypi	-	yes	Pinned from the lock. util/logging.py uses use_decimal=True, which stdlib json lacks.
+30-core	psutil	7.2.2	any	pip	pypi	-	yes	Pinned from the lock. util/misc.py cpu_mem_usage(). Missing from upstream environment.yml; added by hand in LCAD commit 440af0d.
+30-core	av	17.1.0	any	pip	pypi	-	yes	Pinned from the lock. PyAV, used by util/decoder/video_container.py to demux. Missing from upstream environment.yml. Ships manylinux_2_28_aarch64 wheels with ffmpeg bundled.
+30-core	opencv-python-headless	5.0.0.93	any	pip	pypi	-	yes	Pinned from the lock. NOTE this is OpenCV 5.x: the previous 'latest' crossed a major version on its own, which is precisely why this file now pins. cv2 is imported only by visualize_video.py, so nothing has exercised it yet -- treat the first visualization run as the real test. Headless variant avoids pulling a Qt/GUI stack onto a server.
+30-core	matplotlib	3.10.9	any	pip	pypi	-	yes	Pinned from the lock. util/misc.py imports pyplot at module top level, so it is needed even though no plot is drawn. Missing from upstream environment.yml.
+30-core	pillow	12.2.0	any	pip	pypi	-	yes	Pinned from the lock. PIL in util/decoder/transform.py and the kinetics.py ToPILImage path.
+30-core	tensorboard	2.21.0	any	pip	pypi	-	yes	Pinned from the lock. SummaryWriter in main_pretrain.py, plus register_filesystem from tensorboard.compat.
+40-optional	pytorchvideo	0.1.5	any	pip	pypi	-	no	Installs fine, then BLOCKS THE ENTRY POINT at import -- see note [P1]. required=no so the installer observes the failure instead of working around it. sdist only, no wheel.
+#
+#	=========================================================================
+#	NOTES
+#	=========================================================================
+#
+#	[P1] pytorchvideo 0.1.5 -- a blocker, not a curiosity
+#	     The package installs without error. Importing it does not:
+#	     pytorchvideo.transforms.__init__ loads augmix -> augmentations.py,
+#	     which does `import torchvision.transforms.functional_tensor`, a module
+#	     removed in torchvision 0.17. Confirmed on this host with torchvision
+#	     0.26.0+cu128.
+#
+#	     util/kinetics.py:13 imports from it at MODULE TOP LEVEL, and
+#	     main_pretrain.py:31 does `from util.kinetics import Kinetics`.
+#	     Therefore `import main_pretrain` raises ModuleNotFoundError and
+#	     training cannot start at all. This fires BEFORE the three known
+#	     blockers inside main_pretrain, so it is the first thing to clear.
+#
+#	     The five symbols taken from pytorchvideo are used only inside
+#	     Kinetics.get_pretrain_augmentation() (util/kinetics.py:447), whose one
+#	     call site is commented out at line 164. Deleting the import block at
+#	     lines 13-19 is therefore safe.
+#
+#	     Correction to an earlier reading: the neighbouring
+#	     `torchvision.transforms._transforms_video` import at line 22 does NOT
+#	     fail. That module still exists in torchvision 0.26 and only emits a
+#	     DeprecationWarning. It needs no change.
+#
+#	     Fixing the clone is a decision, not an install step, so this installer
+#	     deliberately does neither.
+#	=========================================================================
+#	DELIBERATE OMISSIONS
+#	=========================================================================
+#
+#	numpy         NO LONGER OMITTED -- it now has a row in 30-core. The old
+#	              reasoning stands as far as it went: upstream's numpy==1.23.5
+#	              pin is wrong, the repo has no np.float / np.int / np.bool,
+#	              and torch pulls numpy>=2 regardless. What that reading
+#	              missed is util/video_vit.py:5, which imports a PRIVATE numpy
+#	              symbol still reachable only through a deprecation shim. See
+#	              the row's note. The pin is to hold that shim, not to satisfy
+#	              a version range.
+#
+#	detectron2    Installed by create_venv_cu128.sh, imported nowhere in the
+#	              repo. Building it from source on aarch64 is expensive and
+#	              buys nothing.
+#
+#	fvcore, yacs, scipy, pandas, cloudpickle, parameterized, black
+#	              Present in upstream environment.yml, unreachable from
+#	              run_pretrain.py. (fvcore/parameterized come back as
+#	              transitive deps of pytorchvideo if that row succeeds.)
+#
+#	youtube-dl, yt-dlp
+#	              For the ActivityNet Kinetics crawler bundled in the repo,
+#	              which downloads the public Kinetics dataset. Not needed when
+#	              the videos are produced locally, which is the case here.
+#
+#	torchaudio    Installed by create_venv_cu*.sh, imported nowhere.
+#
+#	cuda-nvcc, cuda-cudart-dev, cuda-cccl
+#	              A CUDA toolkit inside the env is needed only when something
+#	              compiles CUDA extensions at install time. mae_st has NO
+#	              compiled extensions -- it is pure Python over torch, and the
+#	              torch wheel ships its own CUDA runtime. Omitted on purpose.
+#	              A manifest for a project that DOES build extensions would
+#	              add them back as 00-env rows.
+#
+#	=========================================================================
+#	WHAT THIS FILE DOES NOT PIN
+#	=========================================================================
+#
+#	Every row above is pinned to a version measured on this host and recorded
+#	in lock.dgx-spark.txt. That closes more than it looks: torch declares its
+#	CUDA stack (cuda-toolkit, cudnn, nccl, cusparselt, nvshmem) with exact ==,
+#	so pinning torch pins all of it.
+#
+#	What still floats is roughly twenty pure-Python transitives that nothing
+#	here names: tensorboard's (absl-py, grpcio, markdown, protobuf, werkzeug),
+#	matplotlib's (contourpy, fonttools, kiwisolver, cycler, pyparsing,
+#	python-dateutil), torch's soft ones (sympy, networkx, jinja2, fsspec,
+#	filelock, typing-extensions) and pytorchvideo's (fvcore, yacs, portalocker,
+#	tqdm, termcolor, tabulate, parameterized).
+#
+#	Closing that last gap needs a constraints file rather than more rows --
+#	pip install -c, with lock.dgx-spark.txt as the input. That is a mechanism
+#	decision, not taken here. Naming the gap is the point: an unpinned
+#	transitive you know about is a risk; one you have not noticed is a bug
+#	waiting to be blamed on something else.

@@ -4,3 +4,9 @@ output_visualizations/
 *.pyc
 *.pyo
 *~
+
+# Added in the 'installer' branch
+# Logs are transient artifacts for making a manifest work. They don't belong in the repo
+_install/logs/
+# lock files are consumed by the user in the process of constructing the manifest, and are incorporated into it. 
+_install/lock.*.txt
