@@ -1,0 +1,99 @@
+{
+    // NOTE on paths: this workspace is multi-root, and there ${workspaceFolder}
+    // cannot be resolved -- VSCode aborts the task before prompting for any
+    // input, so launching one appears to do nothing. Commands therefore spell
+    // the tooling location from $HOME; if the tooling moves, that prefix is the
+    // one thing to update here.
+    "version": "2.0.0",
+    "inputs": [
+        {
+            "id": "config",
+            "type": "promptString",
+            "description": "config: absolute path to .py",
+            "default": "${env:HOME}/mae_st_experiments/configs/overfit_k400_slice10-vitl_nonorm.py"
+        },
+        {
+            "id": "use_tmux",
+            "type": "pickString",
+            "description": "Run inside a tmux session?",
+            "options": ["Sim", "Não"],
+            "default": "Sim"
+        },
+        {
+            "id": "resume_choice",
+            "type": "pickString",
+            "description": "If an interrupted run is found for this config:",
+            "options": ["Continuar (--resume)", "Reiniciar do zero"]
+        },
+        {
+            "id": "config_for_compute_loss",
+            "type": "promptString",
+            "description": "config: absolute path to .py",
+            "default": "${env:HOME}/mae_st_experiments/configs/overfit_k400_slice10-vitl_nonorm.py"
+        },
+        {
+            "id": "dataset",
+            "type": "promptString",
+            "description": "--dataset <dir>: Kinetics data dir with val.csv (required)",
+            "default": "${env:HOME}/datasets/kinetics400_slice10"
+        },
+        {
+            "id": "checkpoint",
+            "type": "promptString",
+            "description": "[--checkpoint <path>]: blank = last_checkpoint",
+            "default": ""
+        },
+        {
+            "id": "log_file",
+            "type": "promptString",
+            "description": "log_file: absolute path to scalars.json",
+            "default": "${env:HOME}/mae_st_experiments/work_dirs/mae_st_overfit_tests/overfit_k400_slice10-vitl_nonorm/"
+        }
+    ],
+    "tasks": [
+        {
+            "label": "train",
+            "detail": "Roda o treino (pergunta tmux; detecta e pergunta sobre treino interrompido)",
+            "type": "shell",
+            "command": "bash ~/mae_st_tooling/run_training.sh '${input:config}' '${input:use_tmux}' '${input:resume_choice}'",
+            "options": {
+                "shell": { "executable": "/bin/bash", "args": ["-ic"] }
+            },
+            "presentation": { "panel": "dedicated", "reveal": "always" },
+            "problemMatcher": []
+        },
+        {
+            "label": "compute_loss",
+            "detail": "Calcula a loss num dataset, com um checkpoint (padrao: last_checkpoint), e gera as visualizacoes",
+            "type": "shell",
+            "command": "conda activate mae_st_test && python -u ~/mae_st_tooling/tools/compute_loss.py '${input:config_for_compute_loss}' --checkpoint '${input:checkpoint}' --dataset '${input:dataset}'",
+            "options": {
+                "shell": { "executable": "/bin/bash", "args": ["-ic"] }
+            },
+            "presentation": { "panel": "dedicated", "reveal": "always" },
+            "problemMatcher": []
+        },
+        {
+            "label": "tensorboard",
+            "detail": "TensorBoard sobre todos os work_dirs, em primeiro plano (parar: lixeira do terminal ou Ctrl+C); o editor oferece abrir a porta",
+            "type": "shell",
+            "command": "bash ~/mae_st_tooling/run_tensorboard.sh",
+            "options": {
+                "shell": { "executable": "/bin/bash", "args": ["-ic"] }
+            },
+            "presentation": { "panel": "dedicated", "reveal": "always" },
+            "problemMatcher": []
+        },
+        {
+            "label": "plot_loss",
+            "detail": "Plota o scalars.json informado (loss de treino e de validacao)",
+            "type": "shell",
+            "command": "conda activate mae_st_test && python ~/mae_st_tooling/tools/plot_loss.py '${input:log_file}'",
+            "options": {
+                "shell": { "executable": "/bin/bash", "args": ["-ic"] }
+            },
+            "presentation": { "panel": "dedicated", "reveal": "always" },
+            "problemMatcher": []
+        }
+    ]
+}

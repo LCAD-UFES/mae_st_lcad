@@ -1,0 +1,4 @@
+work_dirs/
+checkpoints/
+__pycache__/
+*.pyc

@@ -1,0 +1,8 @@
+{
+    // Remote-SSH auto port forwarding: label the TensorBoard port so the
+    // "application available" popup names it, and only notify (never
+    // auto-open a browser). Started by the "tensorboard" task.
+    "remote.portsAttributes": {
+        "6006": { "label": "TensorBoard", "onAutoForward": "notify" }
+    }
+}
