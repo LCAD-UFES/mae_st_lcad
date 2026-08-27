@@ -1,6 +1,6 @@
 """Train an MAE-ST model with our own epoch loop around the upstream engine.
 
-    python tools/train.py <config> [--resume] [--tensorboard on|off]
+    python tools/train.py <config> [--checkpoint last|PATH] [--tensorboard on|off]
 
 <config> is a path, or a bare file name looked up in EXPERIMENTS_ROOT/configs/
 (see bootstrapper.py for where that is).
@@ -17,9 +17,19 @@ Epoch numbering: the engine receives the upstream 0-based epoch index;
 everything user-facing (scalars.json, epoch_N.pth, epochXXXX tags) counts
 epochs COMPLETED, 1-based, like mmengine.
 
---resume restores model/optimizer/scaler/epoch from work_dir/last_checkpoint,
-starts a NEW <ts>/ run dir (own log, config copy, tensorboard) and seeds its
-scalars.json with the previous run's records so the curve stays continuous.
+Where training starts is decided by one argument:
+
+  (nothing)            a fresh run: epoch 1, weights from the config's
+                       `load_from`, or random initialization if it has none
+  --checkpoint last    resume from the newest checkpoint of this config
+                       (work_dir/last_checkpoint)
+  --checkpoint PATH    resume from that .pth (a bare name is looked up in
+                       EXPERIMENTS_ROOT/checkpoints/)
+
+Resuming restores model, optimizer, scaler and epoch counter; it starts a NEW
+<ts>/ run dir (own log, config copy, tensorboard) and seeds its scalars.json
+with the previous run's records so the curve stays continuous. Saving is
+unaffected by any of this.
 """
 
 import argparse
@@ -76,8 +86,10 @@ def build_engine_args(cfg, work_dir):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("config", help="config path, or a name in EXPERIMENTS_ROOT/configs/")
-    parser.add_argument("--resume", action="store_true",
-                        help="continue from work_dir/last_checkpoint")
+    parser.add_argument("--checkpoint", default="",
+                        help="resume from this .pth ('last' = the newest one of this "
+                             "config); omit it to start a fresh run from the config's "
+                             "load_from")
     parser.add_argument("--tensorboard", choices=["on", "off"], default="on",
                         help="write TensorBoard events to <run_dir>/tb (default on; "
                              "cheap, and it is what lets a dashboard be attached later)")
@@ -92,7 +104,15 @@ def main():
     try:
         print(f"[train] config:  {cfg['__config_path__']}")
         print(f"[train] run_dir: {run_dir}")
-        print(f"[train] resume:  {cli.resume}")
+
+        # One scheme for "where do the weights come from" (see the docstring):
+        # an explicit --checkpoint (or `last`) resumes; anything else is a
+        # fresh run seeded by the config's load_from.
+        ckpt_path, ckpt_source = exp.resolve_checkpoint(
+            work_dir, cli.checkpoint, cfg.get("load_from"))
+        resuming = ckpt_source in (exp.LAST, "checkpoint")
+        print(f"[train] start:   {'resume' if resuming else 'fresh run'} "
+              f"({ckpt_source}{': ' + ckpt_path if ckpt_path else ''})")
 
         seed = cfg["seed"]
         exp.seed_everything(seed)
@@ -119,8 +139,11 @@ def main():
 
         # --- model / optimizer ----------------------------------------------
         model = exp.build_model(cfg, device)
-        if not cli.resume and cfg.get("load_from"):
-            load_mae_checkpoint(model, exp.bs.resolve(cfg["load_from"], exp.bs.CHECKPOINTS_DIR))
+        if not resuming:
+            if ckpt_path is not None:  # load_from: weights only, epoch counter at 0
+                load_mae_checkpoint(model, ckpt_path)
+            else:
+                print("[train] no load_from: starting from random initialization")
 
         param_groups = misc.add_weight_decay(
             model, cfg.get("weight_decay", 0.05), bias_wd=cfg.get("bias_wd", False))
@@ -131,11 +154,9 @@ def main():
 
         # --- resume ------------------------------------------------------------
         start_epoch = 0
-        if cli.resume:
-            path = exp.read_last_checkpoint(work_dir)
-            if path is None:
-                raise FileNotFoundError(f"--resume given but no last_checkpoint in {work_dir}")
-            start_epoch, ckpt = exp.load_resume_checkpoint(path, model, optimizer, loss_scaler)
+        if resuming:
+            start_epoch, ckpt = exp.load_resume_checkpoint(
+                ckpt_path, model, optimizer, loss_scaler)
             prev = ckpt.get("run_dir")
             prev_scalars = osp.join(prev, "vis_data", "scalars.json") if prev else None
             if prev_scalars and osp.isfile(prev_scalars):

@@ -10,9 +10,11 @@
                on --mode (default "val" -> val.csv). Point it at the training
                set to recompute train loss through the identical code path,
                or at a held-out set for the generalization gap.
-  --checkpoint blank/omitted -> work_dir/last_checkpoint; an explicit path
-               (or a bare name under EXPERIMENTS_ROOT/checkpoints/) may also
-               be a published, fused-qkv pretrain checkpoint.
+  --checkpoint which weights to evaluate, same scheme as train.py:
+               `last` = the newest checkpoint of this config; a path (or a
+               bare name under EXPERIMENTS_ROOT/checkpoints/), which may be a
+               published, fused-qkv pretrain checkpoint; omitted = the
+               config's `load_from`, i.e. the point training would start from.
 
 Writes work_dir/compute_loss/<ts>-<checkpoint_stem>/:
   <ts>.log        console mirror
@@ -45,7 +47,9 @@ def main():
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("config")
     parser.add_argument("--dataset", default="", help="Kinetics data dir (required)")
-    parser.add_argument("--checkpoint", default="", help="blank = work_dir/last_checkpoint")
+    parser.add_argument("--checkpoint", default="",
+                        help="'last' = the newest checkpoint of this config; a path or "
+                             "name; omitted = the config's load_from")
     parser.add_argument("--mode", default="val", choices=["val", "pretrain", "test"],
                         help="Kinetics mode -> which csv is read (val.csv by default)")
     parser.add_argument("--batch-size", type=int, default=None)
@@ -57,7 +61,12 @@ def main():
     dataset_dir = exp.bs.resolve(cli.dataset, exp.bs.DATASETS_ROOT)
 
     cfg = exp.load_config(cli.config)
-    checkpoint = exp.resolve_checkpoint(cfg["work_dir"], cli.checkpoint)
+    checkpoint, source = exp.resolve_checkpoint(
+        cfg["work_dir"], cli.checkpoint, cfg.get("load_from"))
+    if checkpoint is None:
+        print("No --checkpoint given and the config has no load_from: "
+              "there are no weights to evaluate.")
+        raise SystemExit(1)
     ckpt_stem = osp.splitext(osp.basename(checkpoint))[0]
     ts = exp.timestamp()
     run_dir = osp.join(cfg["work_dir"], "compute_loss", f"{ts}-{ckpt_stem}")
@@ -65,7 +74,7 @@ def main():
     close_log = exp.install_tee(osp.join(run_dir, f"{ts}.log"))
     try:
         print(f"Using config:     {cfg['__config_path__']}")
-        print(f"Using checkpoint: {checkpoint}")
+        print(f"Using checkpoint: {checkpoint}  ({source})")
         print(f"Using dataset:    {dataset_dir} (mode {cli.mode})")
 
         seed = cfg["seed"]
@@ -95,6 +104,7 @@ def main():
             json.dump({
                 "config": cfg["__config_path__"],
                 "checkpoint": checkpoint,
+                "checkpoint_source": source,
                 "dataset": dataset_dir,
                 "mode": cli.mode,
                 "mask_ratio": cfg["mask_ratio"],

@@ -97,10 +97,10 @@ model_kwargs = dict(
     sep_pos_embed=False,
     cls_embed=False,
 )
-# Initial weights when starting from scratch (ignored on --resume); a bare
+# Initial weights of a fresh run (ignored when resuming via --checkpoint); a bare
 # name is looked up under EXPERIMENTS_ROOT/checkpoints/. Fused attn.qkv keys
 # are split into q/k/v on load (custom/checkpoints.py).
-load_from = "video-mae-200x4-nonorm.pth"
+# load_from = "video-mae-200x4-nonorm.pth"
 
 # --- Tier 4: conventions/infrastructure ------------------------------------
 # work_dir derives from THIS FILE's name:

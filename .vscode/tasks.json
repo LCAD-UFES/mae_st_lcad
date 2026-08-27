@@ -20,10 +20,10 @@
             "default": "Sim"
         },
         {
-            "id": "resume_choice",
-            "type": "pickString",
-            "description": "If an interrupted run is found for this config:",
-            "options": ["Continuar (--resume)", "Reiniciar do zero"]
+            "id": "train_checkpoint",
+            "type": "promptString",
+            "description": "[--checkpoint]: blank = start from scratch; 'last' = resume the newest checkpoint of this config; or a path to a .pth",
+            "default": ""
         },
         {
             "id": "config_for_compute_loss",
@@ -40,8 +40,8 @@
         {
             "id": "checkpoint",
             "type": "promptString",
-            "description": "[--checkpoint <path>]: blank = last_checkpoint",
-            "default": ""
+            "description": "[--checkpoint]: 'last' = newest checkpoint of this config; a path to a .pth; blank = the config's load_from",
+            "default": "last"
         },
         {
             "id": "log_file",
@@ -53,9 +53,9 @@
     "tasks": [
         {
             "label": "train",
-            "detail": "Roda o treino (pergunta tmux; detecta e pergunta sobre treino interrompido)",
+            "detail": "Roda o treino (pergunta tmux e de onde comecar: do zero, do ultimo checkpoint, ou de um .pth)",
             "type": "shell",
-            "command": "bash ~/mae_st_tooling/run_training.sh '${input:config}' '${input:use_tmux}' '${input:resume_choice}'",
+            "command": "bash ~/mae_st_tooling/run_training.sh '${input:config}' '${input:use_tmux}' '${input:train_checkpoint}'",
             "options": {
                 "shell": { "executable": "/bin/bash", "args": ["-ic"] }
             },

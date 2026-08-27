@@ -37,7 +37,7 @@ Contents
 | Sapiens (mmengine) | here |
 |---|---|
 | `configs/<name>.py`, tiered, `work_dir` derived from the filename | same |
-| VSCode tasks `train` / `compute_loss` / `plot_loss` | same labels, same prompts (config, tmux, resume, dataset, checkpoint) |
+| VSCode tasks `train` / `compute_loss` / `plot_loss` | same labels, same prompts (config, tmux, checkpoint, dataset) |
 | `work_dir/last_checkpoint`, `epoch_N.pth`, `<timestamp>/` per run | same layout |
 | `vis_data/scalars.json` + `plot_loss.py` | same format, plus a `val_loss` curve |
 | the Sapiens visualization hook (per-sample files, loss in the filename) | `custom/viz_hooks.py::ReconstructionVideoHook` |
@@ -132,22 +132,40 @@ hooks = [ReconstructionVideoHook(mask_ratio=mask_ratio)]
 
 ### 2.5 Run it
 
-Open this directory in VSCode (alone, or as one folder of a multi-root workspace together with the experiments directory and the clone). The tasks live in `.vscode/tasks.json` here and prompt for bare names (`Terminal → Run Task…`, or the TASKS panel):
+Open this directory in VSCode (alone, or as one folder of a multi-root workspace together with the experiments directory and the clone). The tasks live in `.vscode/tasks.json` here (`Terminal → Run Task…`, or the TASKS panel):
 
 | task | asks for | does |
 |---|---|---|
-| `train` | config name, tmux?, resume-or-restart | trains; writes `EXPERIMENTS_ROOT/work_dirs/mae_st_overfit_tests/<config>/` |
-| `compute_loss` | config name, checkpoint (blank = last), dataset name | loss per video + visualizations for one checkpoint |
-| `plot_loss` | `scalars.json` path relative to `work_dirs/` | PNG with train and val loss curves |
+| `train` | config, tmux?, checkpoint | trains; writes `EXPERIMENTS_ROOT/work_dirs/mae_st_overfit_tests/<config>/` |
+| `compute_loss` | config, checkpoint, dataset | loss per video + visualizations for one checkpoint |
+| `plot_loss` | `scalars.json` path | PNG with train and val loss curves |
 | `tensorboard` | — | dashboard over *all* work_dirs, in the foreground (stop with Ctrl+C) |
 
-Or from the shell, from any directory:
+The tasks are only a front end: each one answers its prompts and runs a command you can type yourself, from any directory, with the environment active. The table below is exhaustive — every path the prompts can take, plus the options only the command line exposes. `~/mae_st_tooling` is wherever this directory lives; a config, dataset or checkpoint may be given as an absolute path or as a bare name (looked up in `EXPERIMENTS_ROOT/configs/`, `DATASETS_ROOT`, `EXPERIMENTS_ROOT/checkpoints/` respectively).
 
-```bash
-python tools/train.py my_first_test.py                       # add --resume to continue
-python tools/compute_loss.py my_first_test.py --dataset kinetics400_slice10
-python tools/plot_loss.py mae_st_overfit_tests/my_first_test/<ts>/vis_data/scalars.json
-```
+| task | prompt / answer | command |
+|---|---|---|
+| `train` | config: any name or path | `python ~/mae_st_tooling/tools/train.py my_config.py` |
+| `train` | checkpoint: **blank** — start from scratch (weights from the config's `load_from`, or random if it has none) | `… tools/train.py my_config.py` |
+| `train` | checkpoint: **`last`** — resume the newest checkpoint of this config | `… tools/train.py my_config.py --checkpoint last` |
+| `train` | checkpoint: **a path** — resume that `.pth` | `… tools/train.py my_config.py --checkpoint <work_dir>/epoch_20.pth` |
+| `train` | tmux: **Não** — run in this terminal | any of the commands above, or `bash ~/mae_st_tooling/run_training.sh my_config.py Não '<checkpoint>'` |
+| `train` | tmux: **Sim** — detached, survives disconnection | `bash ~/mae_st_tooling/run_training.sh my_config.py Sim '<checkpoint>'` then `tmux attach -t <config>-<timestamp>` |
+| `train` | *(not in the task)* do not write TensorBoard events | `… tools/train.py my_config.py --tensorboard off` |
+| `compute_loss` | checkpoint: **`last`** (the task's default) — newest checkpoint of this config | `python ~/mae_st_tooling/tools/compute_loss.py my_config.py --checkpoint last --dataset my_dataset` |
+| `compute_loss` | checkpoint: **blank** — the config's `load_from`, i.e. the point training starts from | `… tools/compute_loss.py my_config.py --dataset my_dataset` |
+| `compute_loss` | checkpoint: **a path or name** — including a published, fused-qkv one | `… tools/compute_loss.py my_config.py --checkpoint video-mae-200x4-nonorm.pth --dataset my_dataset` |
+| `compute_loss` | dataset: any dir holding the csvs | `… --dataset ~/datasets/kinetics400_slice10` |
+| `compute_loss` | *(not in the task)* read `train.csv` or `test.csv` instead of `val.csv` | `… --dataset my_dataset --mode pretrain` (or `--mode test`) |
+| `compute_loss` | *(not in the task)* override the batch size | `… --dataset my_dataset --batch-size 4` |
+| `plot_loss` | log_file: a `scalars.json` | `python ~/mae_st_tooling/tools/plot_loss.py <run>/vis_data/scalars.json` |
+| `plot_loss` | log_file: a run directory | `… tools/plot_loss.py mae_st_overfit_tests/my_config/<timestamp>` |
+| `plot_loss` | log_file: a config's work_dir (the task's default) — plots its newest run | `… tools/plot_loss.py mae_st_overfit_tests/my_config/` |
+| `plot_loss` | *(not in the task)* choose where the PNG goes | `… tools/plot_loss.py <scalars.json> --output /tmp/curve.png` |
+| `tensorboard` | — | `bash ~/mae_st_tooling/run_tensorboard.sh` |
+| `tensorboard` | *(not in the task)* a different logdir or port | `bash ~/mae_st_tooling/run_tensorboard.sh <logdir> <port>` |
+
+Two things the command line does not change: `train.py` always writes checkpoints as the config's `save_every_epochs` dictates, and a resume always opens a *new* `<timestamp>/` run directory while carrying the previous `scalars.json` records forward, so the loss curve stays continuous.
 
 What a training leaves behind, under `EXPERIMENTS_ROOT`:
 
@@ -236,7 +254,7 @@ Everything `train.py` and `compute_loss.py` share.
 
 `load_fixed_clips(dataset, n, seed)` decodes the validation clips **once**, under a fixed seed, and keeps them in memory. Three RNGs feed a Kinetics sample (Python `random` for the temporal start, `numpy` for crops/flips, torch for the MAE mask); re-seeding them every epoch would also reset the training sampler's shuffle. Freezing the clips and forking only the torch RNG around each evaluation (`fork_seeded`) makes the validation masks identical from epoch to epoch without touching training randomness. That is what makes `val_loss` comparable over time, and why `compute_loss` on `epoch_N.pth` reproduces exactly the `val_loss` train.py logged. `masked_loss()` is that evaluation; `run_hooks()` runs the hooks under the same envelope and merges their `{stem: loss}` results.
 
-Checkpoints: `save_checkpoint()` writes `epoch_N.pth` with the upstream dict keys (`model`, `optimizer`, `epoch`, `scaler`, `args`) plus `config` and `run_dir`, rewrites `last_checkpoint`, prunes to `max_keep_ckpts`. `resolve_checkpoint()` has the Sapiens semantics: explicit path (or a name under `checkpoints/`) wins, else the sentinel, else a loud error. `load_resume_checkpoint()` restores model/optimizer/scaler and returns the next epoch to run.
+Checkpoints: `save_checkpoint()` writes `epoch_N.pth` with the upstream dict keys (`model`, `optimizer`, `epoch`, `scaler`, `args`) plus `config` and `run_dir`, rewrites `last_checkpoint`, prunes to `max_keep_ckpts`. `resolve_checkpoint(work_dir, explicit, load_from)` is the one place that answers "which weights": `last` → the sentinel (error if absent), an explicit path or name → itself, nothing → the config's `load_from`. It returns the path *and* which of those cases it was, which is how `train.py` knows whether to resume or start fresh and what to print. `load_resume_checkpoint()` restores model/optimizer/scaler, returns the next epoch to run, and refuses checkpoints this tooling did not write.
 
 ### 3.5 `custom/engine.py`
 
@@ -257,7 +275,7 @@ The hook contract: a callable `hook(model, samples, stems, tag, run_dir) -> {ste
 ### 3.8 `tools/train.py`
 
 ```
-python tools/train.py <config> [--resume] [--tensorboard on|off]
+python tools/train.py <config> [--checkpoint last|PATH] [--tensorboard on|off]
 ```
 
 Owns the epoch loop; upstream supplies the parts. Per config it builds the `Kinetics` train dataset (mode `pretrain`) and a plain `DataLoader` (`drop_last=False` — upstream's `True` would drop videos from a 10-video set), the fixed validation clips, the model (initialized from `load_from` when not resuming), `misc.add_weight_decay` parameter groups, `torch.optim.AdamW(betas=(0.9, 0.95))` (the public replacement for the private optimizer upstream uses) and `misc.NativeScalerWithGradNormCount`. It assembles the `argparse.Namespace` the upstream engine and `lr_sched` read (`accum_iter`, `mask_ratio`, `clip_grad`, `repeat_aug`, `lr`, `min_lr`, `warmup_epochs`, `epochs`, `output_dir`, `num_checkpoint_del=0`).
@@ -266,7 +284,9 @@ Each epoch: `custom.engine.train_one_epoch` (with the hooks firing from `after_i
 
 **Learning rate.** Upstream's `lr_sched` applies linear warmup then half-cycle cosine from `lr` to `min_lr`, unconditionally. For a constant rate set `lr == min_lr` and `warmup_epochs = 0`. `lr` may be left `None` to use `blr` with upstream's linear scaling rule (`blr × effective batch / 256`).
 
-**Resume.** `--resume` reads `work_dir/last_checkpoint`, restores everything, and starts a *new* `<ts>/` run directory (own log, config copy, tb), pre-filled with the previous run's `scalars.json` records so the curve stays continuous. `run_training.sh` adds the flag only when the user chose "Continuar" *and* the sentinel exists.
+**Where it starts.** One argument decides, and the run prints which case it took. With no `--checkpoint` it is a fresh run: epoch 1, weights from the config's `load_from` (split from fused qkv when needed) or random initialization if there is none. With `--checkpoint last` it resumes from the newest checkpoint of that config, named by `work_dir/last_checkpoint`; with `--checkpoint PATH` (or a bare name under `checkpoints/`) it resumes from that file. Resuming restores model, optimizer, scaler and epoch counter, and opens a *new* `<ts>/` run directory (own log, config copy, tb) pre-filled with the previous run's `scalars.json` records, so the curve stays continuous.
+
+Nothing here is guessed. `--checkpoint last` without a sentinel is an error, not a silent fresh start; and a checkpoint that this tooling did not write — one with no optimizer state, or with fused `attn.qkv` weights, like the published ones — is refused in one line telling you to put it in `load_from` instead, because its optimizer state cannot match a model whose q/k/v are separate.
 
 **TensorBoard.** Events go to `<run>/tb` by default (`flush_secs=10`), which is what allows the dashboard to be attached later; `--tensorboard off` disables the writer (`scalars.json` is always written).
 
@@ -276,7 +296,7 @@ Each epoch: `custom.engine.train_one_epoch` (with the hooks firing from `after_i
 python tools/compute_loss.py <config> --dataset DIR [--checkpoint PATH] [--mode val|pretrain|test]
 ```
 
-Inference over a dataset directory with one checkpoint (blank → `last_checkpoint`; an explicit path or a name under `checkpoints/` may be a published fused-qkv checkpoint). Uses the config's `val_dataset` settings with `path_to_data_dir` replaced by `--dataset` and the csv chosen by `--mode`. Runs the config's hooks (or a default `ReconstructionVideoHook`) over every clip with the same fixed masking as training's `val_loss`, prints the per-sample table and the mean, and writes `work_dir/compute_loss/<ts>-<checkpoint_stem>/` with `<ts>.log`, `<ts>.json` and `vis_data/eval/`.
+Inference over a dataset directory with one checkpoint, chosen by the same scheme as `train.py`: `--checkpoint last` is the newest checkpoint of this config, an explicit path or name (a published fused-qkv one included) is used as given, and omitting it evaluates the config's `load_from` — the weights a fresh training would start from, which makes "before training" a one-command baseline. Uses the config's `val_dataset` settings with `path_to_data_dir` replaced by `--dataset` and the csv chosen by `--mode`. Runs the config's hooks (or a default `ReconstructionVideoHook`) over every clip with the same fixed masking as training's `val_loss`, prints the per-sample table and the mean, and writes `work_dir/compute_loss/<ts>-<checkpoint_stem>/` with `<ts>.log`, `<ts>.json` and `vis_data/eval/`.
 
 Because the masks and clips are fixed, the number it reports is a property of the checkpoint and the dataset only, not of the run — so it can be compared across checkpoints, and against the `val_loss` column of `scalars.json`. Two uses follow from that: pointing `--dataset` at the training set gives the training loss measured *without* the training-time augmentation randomness (the per-iteration `loss` in `scalars.json` is averaged over random clips and masks, so it is noisier and not directly comparable); pointing it at a dataset the model never saw gives the loss on unseen data, and the difference between the two is the generalization gap of that checkpoint.
 
@@ -290,7 +310,7 @@ Reads the JSON-lines file (a path, or one relative to `EXPERIMENTS_ROOT/work_dir
 
 ### 3.11 `run_training.sh`, `run_tensorboard.sh`, `.vscode/`
 
-`run_training.sh <config> <Sim|Não> <resume_choice>` is the launcher behind the `train` task, same design as the Sapiens one: every decision arrives as an argument (answered by VSCode pick lists before the script runs, so nothing ever blocks on a `read` inside a possibly flaky SSH session); it asks the tooling to resolve the config and its `work_dir`, decides `--resume` from the `last_checkpoint` sentinel, writes the inner command to a temp script and runs it either inside a detached tmux session named `<config>-<timestamp>` (survives connection drops; `tmux attach -t …`) or in the foreground. It holds no paths of its own — everything comes from the bootstrapper.
+`run_training.sh <config> <Sim|Não> [checkpoint]` is the launcher behind the `train` task, same design as the Sapiens one: every decision arrives as an argument (answered by VSCode's prompts before the script runs, so nothing ever blocks on a `read` inside a possibly flaky SSH session); it asks the tooling to resolve the config and its `work_dir`, echoes both, passes the third argument straight through to `--checkpoint`, writes the inner command to a temp script and runs it either inside a detached tmux session named `<config>-<timestamp>` (survives connection drops; `tmux attach -t …`) or in the foreground. It decides nothing about checkpoints itself — `train.py` resolves and reports that — and holds no paths of its own.
 
 `run_tensorboard.sh [logdir] [port]` runs TensorBoard in the *foreground* over all of `EXPERIMENTS_ROOT/work_dirs/` (so runs from every config, finished or in progress, can be overlaid), bound to localhost only — TensorBoard has no authentication. Started from the `tensorboard` task it is stoppable from the task panel, and VSCode's Remote-SSH detects the port and offers to open it (`.vscode/settings.json` labels port 6006). Independent of the editor, a tunnel from your machine reaches the same server: `autossh -M 0 -N -L 6006:localhost:6006 <user>@<host>`.
 

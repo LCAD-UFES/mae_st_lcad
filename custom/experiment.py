@@ -240,18 +240,36 @@ def read_last_checkpoint(work_dir):
     return path
 
 
-def resolve_checkpoint(work_dir, explicit):
-    """sapiens semantics: a non-empty explicit path wins (a bare name is
-    looked up in EXPERIMENTS_ROOT/checkpoints/); else the sentinel; else a
-    loud error (never silently fall back to random weights)."""
-    if explicit is not None and explicit.strip():
-        return bs.resolve(explicit, bs.CHECKPOINTS_DIR)
-    path = read_last_checkpoint(work_dir)
-    if path is None:
-        raise FileNotFoundError(
-            f"no --checkpoint given and no {SENTINEL} in {work_dir}; "
-            "train first or pass --checkpoint explicitly")
-    return path
+LAST = "last"
+
+
+def resolve_checkpoint(work_dir, explicit, load_from=None):
+    """Which weights to start from. One scheme, shared by both drivers:
+
+      --checkpoint <path>   that file (a bare name is looked up in
+                            EXPERIMENTS_ROOT/checkpoints/)
+      --checkpoint last     the newest checkpoint of this config, named by
+                            work_dir/last_checkpoint
+      omitted               the config's `load_from`, if it has one
+
+    Returns (path_or_None, source) where source is "checkpoint", "last",
+    "load_from" or "none"; the drivers print it and decide what to do with
+    it -- for train.py the first two mean *resume*, the others mean a fresh
+    run. Nothing is ever guessed: `last` without a sentinel is an error, not
+    a silent fallback to random weights."""
+    explicit = (explicit or "").strip()
+    if explicit.lower() == LAST:
+        path = read_last_checkpoint(work_dir)
+        if path is None:
+            raise FileNotFoundError(
+                f"--checkpoint {LAST}, but there is no {SENTINEL} in {work_dir}; "
+                "train this config first, or pass an explicit path")
+        return path, LAST
+    if explicit:
+        return bs.resolve(explicit, bs.CHECKPOINTS_DIR), "checkpoint"
+    if load_from:
+        return bs.resolve(load_from, bs.CHECKPOINTS_DIR), "load_from"
+    return None, "none"
 
 
 def _epoch_of(path):
@@ -287,7 +305,23 @@ def load_resume_checkpoint(path, model, optimizer, loss_scaler):
     """Restore a checkpoint written by save_checkpoint(); returns
     (start_epoch (0-based, the next epoch to run), checkpoint dict)."""
     ckpt = torch.load(path, map_location="cpu", weights_only=False)
-    model.load_state_dict(ckpt["model"], strict=True)
+    state = ckpt.get("model", ckpt.get("model_state", {}))
+    # Two shapes that cannot be resumed from, caught here so they fail in one
+    # readable line instead of a wall of state_dict keys: a weights-only file,
+    # and a foreign checkpoint (fused attn.qkv -- the published MAE-ST ones,
+    # whose optimizer state counts parameters differently from ours anyway).
+    if "optimizer" not in ckpt or "epoch" not in ckpt:
+        raise ValueError(
+            f"{path} carries no optimizer/epoch state, so training cannot resume "
+            "from it. To *start* a run from those weights, name them in the "
+            "config's `load_from` and run without --checkpoint.")
+    if any(".attn.qkv." in k for k in state):
+        raise ValueError(
+            f"{path} stores fused attn.qkv weights, so it was not written by this "
+            "tooling and training cannot resume from it. To *start* a run from "
+            "those weights, name them in the config's `load_from` (they are split "
+            "into q/k/v on load) and run without --checkpoint.")
+    model.load_state_dict(state, strict=True)
     optimizer.load_state_dict(ckpt["optimizer"])
     loss_scaler.load_state_dict(ckpt["scaler"])
     start_epoch = ckpt["epoch"] + 1
