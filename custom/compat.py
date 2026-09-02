@@ -75,7 +75,8 @@ def _stub_meta_internal_modules():
 
 
 def _allowlist_checkpoint_globals():
-    torch.serialization.add_safe_globals([argparse.Namespace])
+    if hasattr(torch.serialization, 'add_safe_globals'):
+        torch.serialization.add_safe_globals([argparse.Namespace])
 
 
 # -- shim 4: the video decoder ----------------------------------------------

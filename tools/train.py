@@ -38,7 +38,8 @@ from torch.utils.tensorboard import SummaryWriter  # noqa: E402
 import mae_st.util.misc as misc  # noqa: E402
 from custom.checkpoints import load_mae_checkpoint  # noqa: E402
 from custom.engine import train_one_epoch  # noqa: E402
-
+from torch.utils.tensorboard import SummaryWriter  # noqa: E402
+import wandb  # NOVO: Importando o WandB
 
 def build_engine_args(cfg, work_dir):
     """The argparse.Namespace the upstream engine / lr_sched / misc read."""
@@ -142,11 +143,42 @@ def main():
                 carried = [r for r in exp.read_scalars(prev_scalars) if r["epoch"] <= start_epoch]
                 for r in carried:
                     exp.append_scalar(run_dir, r)
+
+                record = {"epoch": epochs_done, "loss": train_stats["loss"],
+                      "val_loss": val_loss, "lr": train_stats["lr"], "time": time.time()}
+                exp.append_scalar(run_dir, record)
+
+                # NOVO: Log explícito de época no WandB
+                if wandb.run is not None:
+                    wandb.log({
+                        "epoch": epochs_done,
+                        "custom_train/loss": train_stats["loss"],
+                        "custom_val/loss": val_loss,
+                        "custom_train/lr": train_stats["lr"]
+                    }, step=epochs_done)
+
+                print(f"[train] epoch {epochs_done}/{max_epochs}  loss {record['loss']:.4f}  ")
                 print(f"[train] carried {len(carried)} scalar records from {prev_scalars}")
 
         if cli.tensorboard == "on":
             # flush_secs=10 (default 120) so a live dashboard lags seconds, not minutes
             log_writer = SummaryWriter(log_dir=osp.join(run_dir, "tb"), flush_secs=10)
+            if cli.tensorboard == "on":
+                # flush_secs=10 (default 120) so a live dashboard lags seconds, not minutes
+                log_writer = SummaryWriter(log_dir=osp.join(run_dir, "tb"), flush_secs=10)
+                print(f"[train] tensorboard events -> {log_writer.log_dir}")
+
+                # NOVO: Inicialização do WandB
+                wandb.init(
+                    project="mae_st_lcad_overfit", 
+                    entity='hendrix_research',  # <-- ADICIONADO: Troque pelo seu time/usuário
+                    name=f"{osp.splitext(osp.basename(cfg['__config_path__']))[0]}-{ts}",
+                    config=vars(args),
+                    sync_tensorboard=True, # Captura logs da engine automaticamente
+                    dir=work_dir
+                )
+            else:
+                print("[train] tensorboard off (scalars.json is still written)")
             print(f"[train] tensorboard events -> {log_writer.log_dir}")
         else:
             print("[train] tensorboard off (scalars.json is still written)")
@@ -181,6 +213,15 @@ def main():
             record = {"epoch": epochs_done, "loss": train_stats["loss"],
                       "val_loss": val_loss, "lr": train_stats["lr"], "time": time.time()}
             exp.append_scalar(run_dir, record)
+
+            if wandb.run is not None:
+                wandb.log({
+                    "train/loss": train_stats["loss"],
+                    "val/loss": val_loss,
+                    "train/lr": train_stats["lr"],
+                    "epoch": epochs_done
+                }, step=epochs_done)
+
             print(f"[train] epoch {epochs_done}/{max_epochs}  loss {record['loss']:.4f}  "
                   f"val_loss {val_loss:.4f}  lr {record['lr']:.2e}  "
                   f"elapsed {time.time() - t0:.0f}s")
@@ -194,6 +235,9 @@ def main():
     finally:
         if log_writer is not None:
             log_writer.close()
+        # NOVO: Finaliza a sincronização do WandB
+        if wandb.run is not None:
+            wandb.finish()
         close_log()
 
 

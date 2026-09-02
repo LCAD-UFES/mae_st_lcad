@@ -30,7 +30,7 @@ if [ -z "$CONFIG_ARG" ]; then
 fi
 
 source ~/anaconda3/etc/profile.d/conda.sh
-conda activate mae_st_test
+conda activate mae_st_lcad
 
 # Let the tooling resolve the config (bare name -> configs/) and ask the
 # config for its work_dir; both come from bootstrapper/experiment, so this
@@ -66,8 +66,8 @@ INNER_SCRIPT=$(mktemp "${TMPDIR:-/tmp}/mae_st_train_inner.XXXXXX.sh")
 cat > "$INNER_SCRIPT" <<EOF
 #!/usr/bin/env bash
 source ~/anaconda3/etc/profile.d/conda.sh
-conda activate mae_st_test
-python -u "$TOOLING_DIR/tools/train.py" "$CONFIG" $RESUME_FLAG --tensorboard on
+conda activate mae_st_lcad
+CUDA_VISIBLE_DEVICES=2 python -u "$TOOLING_DIR/tools/train.py" "$CONFIG" $RESUME_FLAG --tensorboard on
 echo
 echo "[training process ended -- press Enter to close]"
 read
