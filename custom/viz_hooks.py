@@ -14,9 +14,12 @@ once), so adding a new visualization = writing a new callable here and listing
 it in the config -- no driver changes. Outputs land in
 run_dir/<out_subdir>/<tag>/.
 
-ReconstructionVideoHook writes, per sample, a side-by-side video
+ReconstructionVideoHook writes, per sample, a vertically stacked video
 
-    [ original | masked input | reconstruction | error map ]
+    [ original ]
+    [ masked input ]
+    [ reconstruction ]
+    [ error map ]
 
 as <stem>_loss<value>.mp4, with the PER-SAMPLE masked-region loss embedded in the filename
 -- same convention as the sapiens overfit hook. The reconstruction panel is
@@ -99,9 +102,10 @@ class ReconstructionVideoHook:
             ).mean(axis=-1).astype(np.uint8)
             diff_u8 = np.repeat(diff[..., None], 3, axis=-1)
 
+            # axis=1 empilha verticalmente: [T, 4H, W, 3]
             panels = np.concatenate(
-                [ref_u8[i], masked_u8[i], composite_u8[i], diff_u8], axis=2
-            )  # [T, H, 4W, 3]
+                [ref_u8[i], masked_u8[i], composite_u8[i], diff_u8], axis=1
+            )
             base = f"{stem}_loss{float(per_sample_loss[i]):.4f}"
             write_video(osp.join(out_dir, base + ".mp4"), panels, self.fps)
             losses[stem] = float(per_sample_loss[i])
