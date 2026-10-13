@@ -198,4 +198,5 @@ dependencies:
       - yacs==0.1.8
       - youtube-dl==2021.12.17
       - yt-dlp==2026.7.4
+      - wandb==0.30.0
 prefix: /home/lume/anaconda3/envs/kinetics
