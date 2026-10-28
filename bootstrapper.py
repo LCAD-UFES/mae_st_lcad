@@ -9,22 +9,23 @@ Two directories, kept apart on purpose:
 
 plus the two external locations:
 
-  UPSTREAM_REPO_ROOT  the pristine mae_st clone, default ~/mae_st ($MAE_ST_UPSTREAM);
-                      its directory name must be `mae_st` (it imports itself as
-                      the package `mae_st.*`), so its PARENT goes on sys.path
-  DATASETS_ROOT       default ~/datasets ($MAE_ST_DATASETS)
+  MAE_ST_REPO_ROOT  a clone of LCAD-UFES/mae_st_lcad, branch main (the MAE-ST
+                    code with the range-image domain changes), default ~/mae_st
+                    ($MAE_ST_REPO); any directory name works
+  DATASETS_ROOT     default ~/datasets ($MAE_ST_DATASETS)
 
 Side effects of importing this module, in order:
   1. TOOLING_ROOT on sys.path (so `import custom...` and `import bootstrapper`
      work from configs and from any cwd);
-  2. the upstream clone's parent on sys.path;
-  3. the stack-compatibility shims from custom/compat.py applied -- this must
-     happen before the first `import mae_st...`.
+  2. MAE_ST_REPO_ROOT registered as the package `mae_st`, the name its code
+     imports itself under.
 
 Configs are plain Python files executed by the drivers; they only need
 `import bootstrapper` and `from custom... import ...` at the top.
 """
 
+import importlib.machinery
+import importlib.util
 import os
 import os.path as osp
 import sys
@@ -32,8 +33,8 @@ import sys
 TOOLING_ROOT = osp.dirname(osp.abspath(__file__))
 EXPERIMENTS_ROOT = osp.abspath(osp.expanduser(
     os.environ.get("MAE_ST_EXPERIMENTS", "~/mae_st_experiments")))
-UPSTREAM_REPO_ROOT = osp.abspath(osp.expanduser(
-    os.environ.get("MAE_ST_UPSTREAM", "~/mae_st")))
+MAE_ST_REPO_ROOT = osp.abspath(osp.expanduser(
+    os.environ.get("MAE_ST_REPO", "~/mae_st")))
 DATASETS_ROOT = osp.abspath(osp.expanduser(
     os.environ.get("MAE_ST_DATASETS", "~/datasets")))
 
@@ -49,12 +50,17 @@ def _prepend(path):
         sys.path.insert(0, path)
 
 
+def _register_mae_st(root):
+    if not osp.isfile(osp.join(root, "models_mae.py")):
+        raise FileNotFoundError(f"no mae_st clone at {root}; clone LCAD-UFES/mae_st_lcad there or set $MAE_ST_REPO")
+    spec = importlib.machinery.ModuleSpec("mae_st", None, is_package=True)
+    spec.submodule_search_locations = [root]
+    sys.modules["mae_st"] = importlib.util.module_from_spec(spec)
+
+
 _prepend(TOOLING_ROOT)
-_prepend(osp.dirname(UPSTREAM_REPO_ROOT))
-
-from custom import compat  # noqa: E402
-
-compat.apply()
+if "mae_st" not in sys.modules:
+    _register_mae_st(MAE_ST_REPO_ROOT)
 
 
 def work_dir_for(config_name):
@@ -75,7 +81,7 @@ def resolve(path, base):
 
 def describe():
     return (f"TOOLING_ROOT={TOOLING_ROOT}\nEXPERIMENTS_ROOT={EXPERIMENTS_ROOT}\n"
-            f"UPSTREAM_REPO_ROOT={UPSTREAM_REPO_ROOT}\nDATASETS_ROOT={DATASETS_ROOT}")
+            f"MAE_ST_REPO_ROOT={MAE_ST_REPO_ROOT}\nDATASETS_ROOT={DATASETS_ROOT}")
 
 
 if __name__ == "__main__":

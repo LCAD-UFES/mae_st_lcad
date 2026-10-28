@@ -51,6 +51,7 @@ _dataset_common = dict(
     num_frames=16,
     train_jitter_scales=(256, 320),
     train_crop_size=224,
+    spatial_resample=True,  # natural images: keep upstream's scale jitter (mae_st main defaults to no resampling)
 )
 train_dataset = dict(  # reads train.csv; random clip + random-resized crop + hflip
     mode="pretrain",
