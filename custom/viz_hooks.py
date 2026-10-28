@@ -14,12 +14,17 @@ once), so adding a new visualization = writing a new callable here and listing
 it in the config -- no driver changes. Outputs land in
 run_dir/<out_subdir>/<tag>/.
 
-ReconstructionVideoHook writes, per sample, a side-by-side video
+ReconstructionVideoHook writes, per sample, one video with four panels,
 
-    [ original | masked input | reconstruction | error map ]
+    original, masked input, reconstruction, error map
 
-as <stem>_loss<value>.mp4, with the PER-SAMPLE masked-region loss embedded in the filename
--- same convention as the sapiens overfit hook. The reconstruction panel is
+each at the resolution the model sees, stacked top to bottom for frames
+wider than tall (a 64 x 2650 range image gives a 256 x 2650 video) and
+side by side otherwise (layout="auto"; "vertical" or "horizontal" force
+one), as <stem>_loss<value>.mp4, with the PER-SAMPLE masked-region loss
+embedded in the filename -- same convention as the sapiens overfit hook.
+mean/std must be the dataset's normalization, so the panels come back to
+the decoded pixel values. The reconstruction panel is
 the COMPOSITE the MAE literature shows: true pixels at visible positions,
 prediction only at masked ones. The loss only ever penalizes masked patches,
 so the raw decoder output at visible positions is untrained noise; the
@@ -35,6 +40,9 @@ import numpy as np
 import torch
 
 
+STACK_AXIS = {"vertical": 1, "horizontal": 2}  # concatenation axis of [T, H, W, 3]
+
+
 class ReconstructionVideoHook:
     def __init__(
         self,
@@ -43,12 +51,15 @@ class ReconstructionVideoHook:
         mean=(0.45, 0.45, 0.45),
         std=(0.225, 0.225, 0.225),
         out_subdir="vis_data",
+        layout="auto",
     ):
+        if layout != "auto" and layout not in STACK_AXIS: raise ValueError(f"layout must be auto, vertical or horizontal, got {layout!r}")
         self.mask_ratio = mask_ratio
         self.fps = fps
         self.mean = torch.tensor(mean).view(1, 3, 1, 1, 1)
         self.std = torch.tensor(std).view(1, 3, 1, 1, 1)
         self.out_subdir = out_subdir
+        self.layout = layout
 
     @torch.no_grad()
     def __call__(self, model, samples, stems, tag, run_dir):
@@ -100,12 +111,16 @@ class ReconstructionVideoHook:
             diff_u8 = np.repeat(diff[..., None], 3, axis=-1)
 
             panels = np.concatenate(
-                [ref_u8[i], masked_u8[i], composite_u8[i], diff_u8], axis=2
-            )  # [T, H, 4W, 3]
+                [ref_u8[i], masked_u8[i], composite_u8[i], diff_u8], axis=self._stack_axis(ref_u8.shape[2:4])
+            )  # [T, 4H, W, 3] or [T, H, 4W, 3]
             base = f"{stem}_loss{float(per_sample_loss[i]):.4f}"
             write_video(osp.join(out_dir, base + ".mp4"), panels, self.fps)
             losses[stem] = float(per_sample_loss[i])
         return losses
+
+    def _stack_axis(self, hw):
+        layout = self.layout if self.layout != "auto" else ("vertical" if hw[1] > hw[0] else "horizontal")
+        return STACK_AXIS[layout]
 
     def _to_uint8(self, video):
         """dataset-normalized [B, 3, T, H, W] -> uint8 [B, T, H, W, 3]"""
@@ -117,6 +132,8 @@ class ReconstructionVideoHook:
 def write_video(path, frames, fps):
     """Encode uint8 [T, H, W, 3] frames as h264 mp4 (no ffmpeg CLI on this
     machine; PyAV's bundled libx264 does the job)."""
+    # yuv420p subsamples chroma 2x2, so libx264 needs even sides: pad odd ones by one edge row/column
+    frames = np.pad(frames, ((0, 0), (0, frames.shape[1] % 2), (0, frames.shape[2] % 2), (0, 0)), mode="edge")
     height, width = frames.shape[1:3]
     rate = Fraction(fps).limit_denominator(1000)
     with av.open(path, "w") as container:
