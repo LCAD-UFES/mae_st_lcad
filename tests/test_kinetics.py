@@ -9,7 +9,7 @@ MEAN, STD = (0.45, 0.45, 0.45), (0.225, 0.225, 0.225)
 
 def normalized(raw): return ((torch.from_numpy(raw).float() / 255 - torch.tensor(MEAN)) / torch.tensor(STD)).permute(3, 0, 1, 2)
 
-class KineticsTest(unittest.TestCase):
+class DatasetCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         rng = np.random.default_rng(0)
@@ -29,6 +29,7 @@ class KineticsTest(unittest.TestCase):
                 if torch.equal(clip, normalized(self.raw[t0 : t0 + clip.shape[1], :, j : j + crop_w])): return t0, j
         return None
 
+class ResampleTest(DatasetCase):
     def test_default_does_not_resample(self):
         clip = self.dataset()[0][0][0]
         self.assertEqual(tuple(clip.shape), (3, 8, H, W))
@@ -44,5 +45,18 @@ class KineticsTest(unittest.TestCase):
 
     def test_rand_aug_requires_resampling(self):
         with self.assertRaises(ValueError): self.dataset(mode="finetune", rand_aug=True)
+
+class SampleIndexTest(DatasetCase):
+    def test_fixed_indices_take_the_first_clip_and_the_centre_window(self):
+        clip = self.dataset(train_crop_size=(H, 40), temporal_sample_index=0, spatial_sample_index=1)[0][0][0]
+        self.assertEqual(self.window(clip, 40), (0, 40))
+
+    def test_fixed_indices_are_repeatable(self):
+        ds = self.dataset(train_crop_size=(H, 40), temporal_sample_index=0, spatial_sample_index=1)
+        self.assertTrue(torch.equal(ds[0][0], ds[0][0]))
+
+    def test_default_indices_are_random(self):
+        ds = self.dataset(train_crop_size=(H, 40))
+        self.assertGreater(len({self.window(ds[0][0][0], 40) for _ in range(6)}), 1)
 
 if __name__ == "__main__": unittest.main()
