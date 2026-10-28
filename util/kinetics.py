@@ -123,10 +123,6 @@ class Kinetics(torch.utils.data.Dataset):
         self.jitter_aspect_relative = jitter_aspect_relative
         self.jitter_scales_relative = jitter_scales_relative
 
-        print(
-            f"jitter_aspect_relative {jitter_aspect_relative} jitter_scales_relative {jitter_scales_relative}"
-        )
-
         self._repeat_aug = repeat_aug
         self._video_meta = {}
         self._num_retries = num_retries
@@ -153,9 +149,6 @@ class Kinetics(torch.utils.data.Dataset):
         self._spatial_resample = spatial_resample
         self._temporal_sample_index = temporal_sample_index
         self._spatial_sample_index = spatial_sample_index
-
-        print(self)
-        print(locals())
 
         # For training or validation mode, one single clip is sampled from every
         # video. For testing, NUM_ENSEMBLE_VIEWS clips are sampled from every
