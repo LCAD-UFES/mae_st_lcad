@@ -29,6 +29,11 @@ Resuming restores model, optimizer, scaler and epoch counter; it starts a NEW
 <ts>/ run dir (own log, config copy, tensorboard) and seeds its scalars.json
 with the previous run's records so the curve stays continuous. Saving is
 unaffected by any of this.
+
+Optional Weights & Biases logging: a config that defines `wandb = dict(...)`
+gets wandb.init(**that dict) per run (e.g. project, entity, mode="offline"),
+and the per-epoch loss, val_loss and lr logged to it. Configs without it do
+not need the wandb package.
 """
 
 import argparse
@@ -99,7 +104,7 @@ def main():
     ts = exp.timestamp()
     run_dir = exp.make_run_dir(work_dir, cfg["__config_path__"], ts)
     close_log = exp.install_tee(osp.join(run_dir, f"{ts}.log"))
-    log_writer = None
+    log_writer = wandb_run = None
     try:
         print(f"[train] config:  {cfg['__config_path__']}")
         print(f"[train] run_dir: {run_dir}")
@@ -171,6 +176,12 @@ def main():
         else:
             print("[train] tensorboard off (scalars.json is still written)")
 
+        if cfg.get("wandb"):
+            import wandb  # optional dependency: needed only by configs that set `wandb`
+            stem = osp.splitext(osp.basename(cfg["__config_path__"]))[0]
+            wandb_run = wandb.init(name=f"{stem}-{ts}", config=vars(args), dir=run_dir, **cfg["wandb"])
+            print(f"[train] wandb run {wandb_run.name} ({cfg['wandb']})")
+
         # --- cadence -----------------------------------------------------------
         max_epochs = cfg["max_epochs"]
         save_every = cfg.get("save_every_epochs", 0)
@@ -201,6 +212,8 @@ def main():
             record = {"epoch": epochs_done, "loss": train_stats["loss"],
                       "val_loss": val_loss, "lr": train_stats["lr"], "time": time.time()}
             exp.append_scalar(run_dir, record)
+            if wandb_run is not None:
+                wandb_run.log({k: record[k] for k in ("loss", "val_loss", "lr")}, step=epochs_done)
             print(f"[train] epoch {epochs_done}/{max_epochs}  loss {record['loss']:.4f}  "
                   f"val_loss {val_loss:.4f}  lr {record['lr']:.2e}  "
                   f"elapsed {time.time() - t0:.0f}s")
@@ -214,6 +227,8 @@ def main():
     finally:
         if log_writer is not None:
             log_writer.close()
+        if wandb_run is not None:
+            wandb_run.finish()
         close_log()
 
 
