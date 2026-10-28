@@ -27,6 +27,7 @@ def train_one_epoch(
     log_writer=None,
     args=None,
     fp32=False,
+    after_iter=None,
 ):
     model.train(True)
     metric_logger = misc.MetricLogger(delimiter="  ")
@@ -97,7 +98,8 @@ def train_one_epoch(
         if (data_iter_step + 1) % accum_iter == 0:
             optimizer.zero_grad()
 
-        torch.cuda.synchronize()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
 
         metric_logger.update(loss=loss_value)
         metric_logger.update(cpu_mem=misc.cpu_mem_usage()[0])
@@ -118,6 +120,9 @@ def train_one_epoch(
             )
             log_writer.add_scalar("train_loss", loss_value_reduce, epoch_1000x)
             log_writer.add_scalar("lr", lr, epoch_1000x)
+
+        if after_iter is not None:
+            after_iter(epoch * len(data_loader) + data_iter_step + 1)
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
