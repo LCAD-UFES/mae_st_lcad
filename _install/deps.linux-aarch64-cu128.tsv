@@ -1,0 +1,76 @@
+#	MAE-ST dependency manifest -- target: Linux aarch64, NVIDIA GB10 (DGX Spark), CUDA 12.8 wheels
+#
+#	One conda environment for both repositories: mae_st_lcad main (the model and
+#	data code, imported as the package `mae_st`) and this tooling. Read and
+#	executed by conda.sh, which lives next to this file; README.md explains every
+#	column and how to write a manifest for another machine. Lines starting with
+#	'#' are comments; lines starting with '#!' are metadata parsed by the script.
+#
+#	To target a different machine: copy this file to deps.<platform>.tsv, edit the
+#	#!target line and the affected rows, then run ./conda.sh deps.<platform>.tsv.
+#	No change to conda.sh should ever be needed to support a new machine.
+#
+#	COLUMNS: stage, package, version, arch, installer, source, flags, required, note
+#	  stage      install order; rows of one stage sharing installer+source+flags+
+#	             required are merged into ONE command (torch + torchvision resolve
+#	             together)
+#	  version    'latest' | exact | range; ignored for direct=, git=, local=
+#	  arch       platform the row was VALIDATED on; documentation, not a filter
+#	  source     pip: pypi | index=<url> | extra=<url> | links=<url> | direct=<url>
+#	             | git=<url>@<ref> | local=<path>; conda: channel=<a>[,<b>] |
+#	             nodefaults  (';'-separated)
+#	  required   'yes' aborts on failure, 'no' warns and continues
+#
+#	Versions are the ones of the environment validated on 2026-08-13 (torch,
+#	torchvision and the CUDA stack they pin; a real GPU matmul and Conv3d).
+#	Rows marked "not yet validated" were added afterwards: pin them from the
+#	lock of the first install that has them (README step 12).
+#
+#	cuda= is the newest runtime the DRIVER supports, as nvidia-smi prints it.
+#	The validation ran on driver 595.71.05 (CUDA 13.2); the reference machine
+#	ran driver 580.173.02 on 2026-10-15, hence 13.0 here [to confirm with
+#	nvidia-smi]. The cu128 wheels need a driver >= 570 and compile nothing, so
+#	either works.
+#
+#!target	os=ubuntu 24.04	arch=aarch64	sm=121	cuda=13.0	python=3.10.20	gpu=NVIDIA GB10
+#!envname	mae_st
+#!repo	https://github.com/LCAD-UFES/mae_st_lcad
+
+stage	package	version	arch	installer	source	flags	required	note
+00-env	python	3.10.20	any	conda	channel=conda-forge	-	yes	timm 0.4.5 predates Python 3.11, so 3.10 is the newest interpreter that works. Changing this row changes every compiled wheel below.
+10-build	pip	26.2.1	any	pip	pypi	--upgrade	yes	Old pip mis-resolves manylinux_2_28_aarch64 tags and silently falls back to building sdists.
+10-build	setuptools	69.5.1	any	pip	pypi	-	yes	setuptools >= 81 dropped pkg_resources, which old sdists import; torch 2.11 requires < 82.
+10-build	wheel	0.48.0	any	pip	pypi	-	yes	Needed to build any sdist with --no-build-isolation.
+20-torch	torch	2.11.0+cu128	linux-aarch64	pip	index=https://download.pytorch.org/whl/cu128	-	yes	The '+cu128' version AND the index are both load-bearing: torch 2.11.0 from PyPI is another binary. conda's pytorch-cuda does not exist for linux-aarch64. Its arch list stops at sm_120, which runs on sm_121 by CUDA minor-version binary compatibility (verify reports it). Pins the whole CUDA stack (cuda-toolkit, cudnn, nccl) with exact ==.
+20-torch	torchvision	0.26.0+cu128	linux-aarch64	pip	index=https://download.pytorch.org/whl/cu128	-	yes	Requires torch==2.11.0 exactly; same command as torch so pip resolves the pair together. torchaudio omitted: nothing imports it.
+30-core	numpy	2.2.6	any	pip	pypi	-	yes	Pinned from the lock. Torch wheels are built against a numpy ABI that torch does not declare, so a numpy change is a re-validation.
+30-core	timm	0.4.5	any	pip	pypi	-	yes	DO NOT BUMP. util/video_vit.py and models_mae.py import timm.models.layers (moved to timm.layers in 0.9) and subclass Attention passing qk_scale (removed in 0.9). py3-none-any, no arch risk.
+30-core	iopath	0.1.9	any	pip	pypi	-	yes	g_pathmgr: kinetics.py, misc.py, logging.py, engine_pretrain.py.
+30-core	simplejson	4.1.1	any	pip	pypi	-	yes	util/logging.py uses use_decimal=True, which stdlib json lacks.
+30-core	psutil	7.2.2	any	pip	pypi	-	yes	util/misc.py cpu_mem_usage(), called every training step.
+30-core	av	17.1.0	any	pip	pypi	-	yes	PyAV: decodes the videos (util/decoder) and writes the visualizations (custom/viz_hooks.py). Ships manylinux_2_28_aarch64 wheels with ffmpeg and libx264 bundled.
+30-core	opencv-python-headless	5.0.0.93	any	pip	pypi	-	yes	util/decoder/utils.py and transform.py import cv2 at module level. Headless avoids a Qt stack on a server. OpenCV 5.x requires numpy >= 2.
+30-core	pillow	12.2.0	any	pip	pypi	-	yes	util/decoder/transform.py and rand_augment.py.
+30-core	tensorboard	2.21.0	any	pip	pypi	-	yes	SummaryWriter in tools/train.py and engine_pretrain.py; the dashboard of run_tensorboard.sh.
+30-core	matplotlib	3.10.9	any	pip	pypi	-	yes	tools/plot_loss.py.
+40-optional	wandb	latest	linux-aarch64	pip	pypi	-	no	Not yet validated. Only configs that define `wandb = dict(...)` import it (tools/train.py); offline mode writes runs for a later `wandb sync`.
+40-optional	tmux	latest	linux-aarch64	conda	channel=conda-forge	-	no	Not yet validated. run_training.sh runs trainings in a detached tmux session so they survive SSH drops; skip it where the system already has tmux.
+#
+#	DELIBERATE OMISSIONS
+#	  pytorchvideo, detectron2, torchaudio, decord, slowfast, fairscale, hydra,
+#	  fvcore, yacs, scipy, pandas, youtube-dl/yt-dlp: imported nowhere on the
+#	  training path of mae_st_lcad main or the tooling (some came from older
+#	  environments of this project, pytorchvideo from code main no longer has).
+#	  scikit-learn: only main_test's multi-label mAP imports it, lazily.
+#	  A CUDA toolkit inside the env: nothing here compiles CUDA code; the torch
+#	  wheel ships its runtime.
+#	  The repositories themselves: neither is a pip package. The tooling's
+#	  bootstrapper registers the mae_st clone as the package `mae_st` at import.
+#
+#	WHAT THIS FILE DOES NOT PIN
+#	  About twenty pure-Python transitives: tensorboard's (absl-py, grpcio,
+#	  markdown, protobuf, werkzeug), matplotlib's (contourpy, fonttools,
+#	  kiwisolver, cycler, pyparsing, python-dateutil), torch's soft ones (sympy,
+#	  networkx, jinja2, fsspec, filelock, typing-extensions), iopath's
+#	  (portalocker, tqdm) and wandb's. Closing that needs a constraints file
+#	  (pip install -c), a mechanism not adopted; see DESIGN.md.
