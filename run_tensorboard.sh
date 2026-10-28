@@ -21,8 +21,7 @@ set -e
 TOOLING_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PORT="${2:-6006}"
 
-source ~/anaconda3/etc/profile.d/conda.sh
-conda activate mae_st_test
+source "$TOOLING_DIR/env.sh"
 
 if [ -n "$1" ]; then
     LOGDIR="$1"

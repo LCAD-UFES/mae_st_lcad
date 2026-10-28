@@ -32,8 +32,7 @@ if [ -z "$CONFIG_ARG" ]; then
     exit 1
 fi
 
-source ~/anaconda3/etc/profile.d/conda.sh
-conda activate mae_st_test
+source "$TOOLING_DIR/env.sh"
 
 # Let the tooling resolve the config (bare name -> configs/) and ask the
 # config for its work_dir; both come from bootstrapper/experiment, so this
@@ -66,8 +65,8 @@ fi
 INNER_SCRIPT=$(mktemp "${TMPDIR:-/tmp}/mae_st_train_inner.XXXXXX.sh")
 cat > "$INNER_SCRIPT" <<EOF
 #!/usr/bin/env bash
-source ~/anaconda3/etc/profile.d/conda.sh
-conda activate mae_st_test
+export CONDA_EXE="$CONDA_EXE" MAE_ST_CONDA_ENV="${MAE_ST_CONDA_ENV:-mae_st}"
+source "$TOOLING_DIR/env.sh"
 python -u "$TOOLING_DIR/tools/train.py" "$CONFIG" $CKPT_FLAG --tensorboard on
 echo
 echo "[training process ended -- press Enter to close]"
