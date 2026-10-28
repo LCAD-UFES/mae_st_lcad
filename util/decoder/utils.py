@@ -99,8 +99,8 @@ def spatial_sampling(
             than width.
         min_scale (int): the minimal size of scaling.
         max_scale (int): the maximal size of scaling.
-        crop_size (int): the size of height and width used to crop the
-            frames.
+        crop_size (int or (int, int)): the crop size; an int crops a square,
+            a pair crops (height, width).
         inverse_uniform_sampling (bool): if True, sample uniformly in
             [1 / max_scale, 1 / min_scale] and take a reciprocal to get the
             scale. If False, take a uniform sample from [min_scale,
@@ -127,10 +127,11 @@ def spatial_sampling(
                 if motion_shift
                 else transform.random_resized_crop
             )
+            target_height, target_width = transform.size_pair(crop_size)
             frames = transform_func(
                 images=frames,
-                target_height=crop_size,
-                target_width=crop_size,
+                target_height=target_height,
+                target_width=target_width,
                 scale=scale,
                 ratio=aspect_ratio,
             )
