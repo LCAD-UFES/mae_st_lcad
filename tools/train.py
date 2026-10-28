@@ -1,17 +1,16 @@
-"""Train an MAE-ST model with our own epoch loop around the upstream engine.
+"""Train an MAE-ST model with our own epoch loop around the mae_st engine.
 
     python tools/train.py <config> [--checkpoint last|PATH] [--tensorboard on|off]
 
 <config> is a path, or a bare file name looked up in EXPERIMENTS_ROOT/configs/
 (see bootstrapper.py for where that is).
 
-Why our own loop: upstream main_pretrain.py has no validation, no hook
-points and a private optimizer API that no longer exists. Here the upstream
-pieces (Kinetics, models_mae, the per-epoch training step, NativeScaler,
-lr_sched) are used as a library and the loop adds a deterministic validation
-loss every epoch, checkpoints every `save_every_epochs`, visualization hooks
-every `visualize_every_iterations`, a scalars.json for plot_loss.py, and
-resume.
+Why our own loop: mae_st's main_pretrain.py has no validation and no
+config file. Here the mae_st pieces (Kinetics, models_mae, the per-epoch
+training step with its after_iter callback, NativeScaler, lr_sched) are
+used as a library and the loop adds a deterministic validation loss every
+epoch, checkpoints every `save_every_epochs`, visualization hooks every
+`visualize_every_iterations`, a scalars.json for plot_loss.py, and resume.
 
 Epoch numbering: the engine receives the upstream 0-based epoch index;
 everything user-facing (scalars.json, epoch_N.pth, epochXXXX tags) counts
@@ -47,17 +46,17 @@ from torch.utils.tensorboard import SummaryWriter  # noqa: E402
 
 import mae_st.util.misc as misc  # noqa: E402
 from custom.checkpoints import load_mae_checkpoint  # noqa: E402
-from custom.engine import train_one_epoch  # noqa: E402
+from mae_st.engine_pretrain import train_one_epoch  # noqa: E402
 
 
 def build_engine_args(cfg, work_dir):
-    """The argparse.Namespace the upstream engine / lr_sched / misc read."""
+    """The argparse.Namespace the mae_st engine / lr_sched / misc read."""
     eff_batch = cfg["batch_size"] * cfg.get("repeat_aug", 1) * cfg.get("accum_iter", 1)
     lr = cfg.get("lr")
     if lr is None:
         lr = cfg["blr"] * eff_batch / 256  # upstream linear scaling rule
     return argparse.Namespace(
-        # read by custom.engine.train_one_epoch
+        # read by mae_st.engine_pretrain.train_one_epoch
         accum_iter=cfg.get("accum_iter", 1),
         mask_ratio=cfg["mask_ratio"],
         clip_grad=cfg.get("clip_grad"),

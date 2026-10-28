@@ -1,7 +1,7 @@
 """Shared plumbing for the tools/ drivers (train.py, compute_loss.py).
 
 Importing this module imports `bootstrapper`, which does the environment
-setup (sys.path for the tooling and the upstream clone, compatibility shims)
+setup (sys.path for the tooling, the mae_st clone registered as package `mae_st`)
 BEFORE any mae_st import -- which is why the drivers import this first and
 only then touch mae_st.
 
@@ -26,7 +26,7 @@ import shutil
 import sys
 import time
 
-import bootstrapper as bs  # noqa: F401  (side effects: sys.path + compat shims)
+import bootstrapper as bs  # noqa: F401  (side effects: sys.path + the mae_st package)
 import numpy as np
 import torch
 
