@@ -63,6 +63,8 @@ class Kinetics(torch.utils.data.Dataset):
         jitter_scales_relative=None,
         jitter_aspect_relative=None,
         spatial_resample=False,
+        temporal_sample_index=-1,
+        spatial_sample_index=-1,
     ):
         """
         Construct the Kinetics video loader with a given csv file. The format of
@@ -88,6 +90,16 @@ class Kinetics(torch.utils.data.Dataset):
                 lidar range image are beams and azimuth steps, so
                 interpolating them invents measurements. True restores
                 upstream's short-side jitter and random resized crops.
+            temporal_sample_index (int): clip position in pretrain, finetune
+                and val modes. -1 (default) samples a random start; i >= 0
+                takes the i-th of test_num_ensemble_views evenly spaced
+                clips (0 is the first).
+            spatial_sample_index (int): crop position in those modes. -1
+                (default) is random; 0, 1 and 2 are the start, centre and end
+                of the longer axis. With spatial_resample=True a fixed
+                position requires train_jitter_scales with min == max.
+            Fixed indices make every epoch see the same input, which is what
+            an overfit test needs; they are not augmentation.
         """
         if jitter_scales_relative is None:
             jitter_scales_relative = [0.5, 1.0]
@@ -139,6 +151,8 @@ class Kinetics(torch.utils.data.Dataset):
         self._inverse_uniform_sampling = inverse_uniform_sampling
         self._use_offset_sampling = use_offset_sampling
         self._spatial_resample = spatial_resample
+        self._temporal_sample_index = temporal_sample_index
+        self._spatial_sample_index = spatial_sample_index
 
         print(self)
         print(locals())
@@ -221,8 +235,8 @@ class Kinetics(torch.utils.data.Dataset):
         """
         if self.mode in ["pretrain", "finetune", "val"]:
             # -1 indicates random sampling.
-            temporal_sample_index = -1
-            spatial_sample_index = -1
+            temporal_sample_index = self._temporal_sample_index
+            spatial_sample_index = self._spatial_sample_index
             min_scale, max_scale = self._train_jitter_scales
             crop_size = self._train_crop_size
         elif self.mode in ["test"]:
