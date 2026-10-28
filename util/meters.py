@@ -4,7 +4,6 @@
 
 import numpy as np
 import torch
-from sklearn.metrics import average_precision_score
 
 
 def topks_correct(preds, labels, ks):
@@ -79,6 +78,8 @@ def get_map(preds, labels):
 
     preds = preds[:, ~(np.all(labels == 0, axis=0))]
     labels = labels[:, ~(np.all(labels == 0, axis=0))]
+    from sklearn.metrics import average_precision_score  # only the multi-label mAP path needs scikit-learn
+
     aps = [0]
     try:
         aps = average_precision_score(labels, preds, average=None)
