@@ -2,3 +2,5 @@ work_dirs/
 checkpoints/
 __pycache__/
 *.pyc
+*.py[cod]
+venv/
