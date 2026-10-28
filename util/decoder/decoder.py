@@ -2,12 +2,14 @@
 # All rights reserved.
 
 
+import io
 import math
 import random
+from fractions import Fraction
 
+import av
 import numpy as np
 import torch
-import torchvision.io as io
 
 
 def temporal_sampling(frames, start_idx, end_idx, num_samples):
@@ -100,35 +102,18 @@ def decode(
         target_fps (int): the input video may have different fps, convert it to
             the target video fps before frame sampling.
         max_spatial_scale (int): keep the aspect ratio and resize the frame so
-            that shorter edge size is max_spatial_scale. Only used in
-            `torchvision` backend.
+            that shorter edge size is max_spatial_scale. 0 keeps the native
+            resolution.
     Returns:
         frames (tensor): decoded frames from the video.
     """
+    fps, decode_all_video = None, True
     try:
         assert clip_idx >= -1, "Not valied clip_idx {}".format(clip_idx)
-        # Convert the bytes to a tensor.
-        video_tensor = torch.from_numpy(np.frombuffer(container, dtype=np.uint8))
-
-        decode_all_video = True
         video_start_pts, video_end_pts = 0, -1
         # The video_meta is empty, fetch the meta data from the raw video.
         if len(video_meta) == 0:
-            # Tracking the meta info for selective decoding in the future.
-            meta = io._probe_video_from_memory(video_tensor)
-            # Using the information from video_meta to perform selective decoding.
-            video_meta["video_timebase"] = meta.video_timebase
-            video_meta["video_numerator"] = meta.video_timebase.numerator
-            video_meta["video_denominator"] = meta.video_timebase.denominator
-            video_meta["has_video"] = meta.has_video
-            video_meta["video_duration"] = meta.video_duration
-            video_meta["video_fps"] = meta.video_fps
-            video_meta["audio_timebas"] = meta.audio_timebase
-            video_meta["audio_numerator"] = meta.audio_timebase.numerator
-            video_meta["audio_denominator"] = meta.audio_timebase.denominator
-            video_meta["has_audio"] = meta.has_audio
-            video_meta["audio_duration"] = meta.audio_duration
-            video_meta["audio_sample_rate"] = meta.audio_sample_rate
+            video_meta.update(_probe_video(container))
 
         fps = video_meta["video_fps"]
         if not rigid_decode_all_video:
@@ -147,44 +132,54 @@ def decode(
                     num_clips,
                     use_offset=use_offset,
                 )
-                # Convert frame index to pts.
+                # Convert frame index to pts, counted from the stream's first pts.
                 pts_per_frame = video_meta["video_denominator"] / fps
-                video_start_pts = int(start_idx * pts_per_frame)
-                video_end_pts = int(end_idx * pts_per_frame)
+                video_start_pts = video_meta["video_start_pts"] + int(start_idx * pts_per_frame)
+                video_end_pts = video_meta["video_start_pts"] + int(end_idx * pts_per_frame)
 
-        # Decode the raw video with the tv decoder.
-        v_frames, _ = io._read_video_from_memory(
-            video_tensor,
-            seek_frame_margin=1.0,
-            read_video_stream="visual" in modalities,
-            video_width=0,
-            video_height=0,
-            video_min_dimension=max_spatial_scale,
-            video_pts_range=(video_start_pts, video_end_pts),
-            video_timebase_numerator=video_meta["video_numerator"],
-            video_timebase_denominator=video_meta["video_denominator"],
-        )
-
+        v_frames = _read_video(container, video_start_pts, video_end_pts, max_spatial_scale)
         if v_frames.shape == torch.Size([0]):
             # failed selective decoding
             decode_all_video = True
-            video_start_pts, video_end_pts = 0, -1
-            v_frames, _ = io._read_video_from_memory(
-                video_tensor,
-                seek_frame_margin=1.0,
-                read_video_stream="visual" in modalities,
-                video_width=0,
-                video_height=0,
-                video_min_dimension=max_spatial_scale,
-                video_pts_range=(video_start_pts, video_end_pts),
-                video_timebase_numerator=video_meta["video_numerator"],
-                video_timebase_denominator=video_meta["video_denominator"],
-            )
+            v_frames = _read_video(container, 0, -1, max_spatial_scale)
     except Exception as e:
-        print("Failed to decode by torchvision with exception: {}".format(e))
-        return None
+        print("Failed to decode with exception: {}".format(e))
+        return None, fps, decode_all_video
 
     # Return None if the frames was not decoded successfully.
     if v_frames is None or v_frames.size(0) == 0:
         return None, fps, decode_all_video
     return v_frames, fps, decode_all_video
+
+
+# PyAV replacements for torchvision.io._probe_video_from_memory and
+# _read_video_from_memory, the private in-memory video_reader API that the
+# upstream decoder used. Stock torchvision wheels do not ship that backend, and
+# torchvision 0.26 removed the API.
+def _probe_video(video_bytes):
+    with av.open(io.BytesIO(video_bytes)) as c:
+        s = c.streams.video[0]
+        tb = s.time_base or Fraction(0, 1)
+        duration = float(s.duration * tb) if s.duration else (c.duration or 0) / av.time_base
+        return dict(has_video=True, video_timebase=tb, video_numerator=tb.numerator, video_denominator=tb.denominator, video_start_pts=s.start_time or 0, video_duration=duration, video_fps=float(s.average_rate or 0))
+
+
+def _read_video(video_bytes, start_pts=0, end_pts=-1, min_dimension=0):
+    frames = []
+    with av.open(io.BytesIO(video_bytes)) as c:
+        s = c.streams.video[0]
+        if start_pts > 0: c.seek(start_pts, stream=s, backward=True, any_frame=False)
+        for f in c.decode(s):
+            if f.pts is not None and f.pts < start_pts: continue
+            if end_pts != -1 and f.pts is not None and f.pts > end_pts: break
+            frames.append(_rgb(f, min_dimension))
+    return torch.from_numpy(np.stack(frames)) if frames else torch.empty(0)
+
+
+# min_dimension > 0 resizes the shorter side to it, keeping the aspect ratio, as
+# torchvision's video_min_dimension did (libswscale bilinear here, so pixel values
+# may differ slightly from torchvision's build).
+def _rgb(frame, min_dimension):
+    if min_dimension <= 0: return frame.to_ndarray(format="rgb24")
+    k = min_dimension / min(frame.height, frame.width)
+    return frame.reformat(width=round(frame.width * k), height=round(frame.height * k), format="rgb24", interpolation="BILINEAR").to_ndarray()
