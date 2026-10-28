@@ -417,7 +417,7 @@ def main(args):
 
     if misc.get_last_checkpoint(args) is None and args.finetune and not args.eval:
         with pathmgr.open(args.finetune, "rb") as f:
-            checkpoint = torch.load(f, map_location="cpu")
+            checkpoint = torch.load(f, map_location="cpu", weights_only=False)  # torch >= 2.6 defaults to weights_only=True, which rejects the argparse.Namespace stored in these checkpoints
 
         print("Load pre-trained checkpoint from: %s" % args.finetune)
         if "model" in checkpoint.keys():

@@ -20,7 +20,11 @@ import mae_st.util.logging as logging
 import psutil
 import torch
 import torch.distributed as dist
-import torch.fb.rendezvous.zeus
+
+try:
+    import torch.fb.rendezvous.zeus  # noqa: F401  Meta-internal, imported for its side effects; absent outside Meta
+except ImportError:
+    pass
 from iopath.common.file_io import g_pathmgr as pathmgr
 from mae_st.util.logging import master_print as print
 from torch import inf
@@ -388,7 +392,7 @@ def load_model(args, model_without_ddp, optimizer, loss_scaler):
             )
         else:
             with pathmgr.open(args.resume, "rb") as f:
-                checkpoint = torch.load(f, map_location="cpu")
+                checkpoint = torch.load(f, map_location="cpu", weights_only=False)  # torch >= 2.6 defaults to weights_only=True, which rejects the argparse.Namespace stored in these checkpoints
         model_without_ddp.load_state_dict(checkpoint["model"])
         print("Resume checkpoint %s" % args.resume)
         if (
