@@ -187,6 +187,14 @@ def main():
         save_every = cfg.get("save_every_epochs", 0)
         vis_every = cfg.get("visualize_every_iterations", 0)
         iters_per_epoch = len(train_loader)
+        # The engine steps the optimizer when (step + 1) % accum_iter == 0, with step reset every epoch.
+        if args.accum_iter > iters_per_epoch:
+            raise ValueError(f"accum_iter={args.accum_iter} exceeds the {iters_per_epoch} iterations per epoch: "
+                             "the optimizer would never step")
+        if iters_per_epoch % args.accum_iter:
+            print(f"[train] WARNING: {iters_per_epoch} iterations per epoch is not a multiple of accum_iter="
+                  f"{args.accum_iter}; the gradients of the last {iters_per_epoch % args.accum_iter} carry into "
+                  "the next epoch's first step")
 
         def after_iter(global_iter):
             if vis_every > 0 and global_iter % vis_every == 0:
