@@ -295,7 +295,7 @@ def main(args):
         beta = (0.9, 0.95)
     else:
         beta = args.beta
-    optimizer = torch.optim._multi_tensor.AdamW(
+    optimizer = torch.optim.AdamW(
         param_groups,
         lr=args.lr,
         betas=beta,
