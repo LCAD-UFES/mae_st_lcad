@@ -1,0 +1,48 @@
+import os, random, unittest
+import numpy as np, torch
+from tests import _package  # noqa: F401
+from tests._videos import decoded, write_dataset
+from mae_st.util.kinetics import Kinetics
+
+T, H, W = 24, 16, 120
+MEAN, STD = (0.45, 0.45, 0.45), (0.225, 0.225, 0.225)
+
+def normalized(raw): return ((torch.from_numpy(raw).float() / 255 - torch.tensor(MEAN)) / torch.tensor(STD)).permute(3, 0, 1, 2)
+
+class KineticsTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        rng = np.random.default_rng(0)
+        cls.root = write_dataset([rng.integers(0, 256, (T, H, W, 3), dtype=np.uint8) for _ in range(2)])
+        cls.raw = decoded(os.path.join(cls.root, "video_000.mp4"))
+
+    def setUp(self): random.seed(0); np.random.seed(0); torch.manual_seed(0)
+
+    def dataset(self, **kw):
+        args = dict(mode="pretrain", path_to_data_dir=self.root, sampling_rate=1, num_frames=8, target_fps=10, train_crop_size=(H, W), test_crop_size=(H, W), train_random_horizontal_flip=False)
+        return Kinetics(**{**args, **kw})
+
+    def window(self, clip, crop_w):
+        # the sample must be an un-interpolated window of consecutive native frames
+        for t0 in range(T - clip.shape[1] + 1):
+            for j in range(W - crop_w + 1):
+                if torch.equal(clip, normalized(self.raw[t0 : t0 + clip.shape[1], :, j : j + crop_w])): return t0, j
+        return None
+
+    def test_default_does_not_resample(self):
+        clip = self.dataset()[0][0][0]
+        self.assertEqual(tuple(clip.shape), (3, 8, H, W))
+        self.assertIsNotNone(self.window(clip, W))
+
+    def test_default_crops_a_native_resolution_window(self):
+        clip = self.dataset(train_crop_size=(H, 40))[0][0][0]
+        self.assertIsNotNone(self.window(clip, 40))
+
+    def test_resampling_can_be_turned_back_on(self):
+        clip = self.dataset(spatial_resample=True, train_jitter_scales=(16, 20), train_crop_size=16)[0][0][0]
+        self.assertEqual(tuple(clip.shape), (3, 8, 16, 16))
+
+    def test_rand_aug_requires_resampling(self):
+        with self.assertRaises(ValueError): self.dataset(mode="finetune", rand_aug=True)
+
+if __name__ == "__main__": unittest.main()

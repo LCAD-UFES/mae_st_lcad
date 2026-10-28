@@ -84,6 +84,7 @@ def spatial_sampling(
     aspect_ratio=None,
     scale=None,
     motion_shift=False,
+    resample=True,
 ):
     """
     Perform spatial sampling on the given video frames. If spatial_idx is
@@ -108,10 +109,19 @@ def spatial_sampling(
         aspect_ratio (list): Aspect ratio range for resizing.
         scale (list): Scale range for resizing.
         motion_shift (bool): Whether to apply motion shift for resizing.
+        resample (bool): if False, never interpolate: take the crop at the
+            native resolution (random position for spatial_idx -1, uniform
+            position otherwise); scales, aspect ratio and motion shift are
+            ignored.
     Returns:
         frames (tensor): spatially sampled frames.
     """
     assert spatial_idx in [-1, 0, 1, 2]
+    if not resample:
+        if spatial_idx != -1:
+            return transform.uniform_crop(frames, crop_size, spatial_idx)
+        frames = transform.random_crop(frames, crop_size)
+        return transform.horizontal_flip(0.5, frames) if random_horizontal_flip else frames
     if spatial_idx == -1:
         if aspect_ratio is None and scale is None:
             frames = transform.random_short_side_scale_jitter(

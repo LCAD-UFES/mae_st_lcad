@@ -13,7 +13,7 @@ from torchvision import transforms
 
 from .decoder import decoder as decoder, utils as utils, video_container as container
 from .decoder.random_erasing import RandomErasing
-from .decoder.transform import create_random_augment
+from .decoder.transform import create_random_augment, size_pair
 
 
 class Kinetics(torch.utils.data.Dataset):
@@ -62,6 +62,7 @@ class Kinetics(torch.utils.data.Dataset):
         rand_aug=False,
         jitter_scales_relative=None,
         jitter_aspect_relative=None,
+        spatial_resample=False,
     ):
         """
         Construct the Kinetics video loader with a given csv file. The format of
@@ -79,6 +80,14 @@ class Kinetics(torch.utils.data.Dataset):
                 For the test mode, the data loader will take data from test set,
                 and sample multiple clips per video.
             num_retries (int): number of retries.
+            spatial_resample (bool): if False (default), frames are never
+                interpolated: decoding keeps the native resolution, crops
+                are cut from it, and the scale/aspect jitter arguments
+                (train_jitter_scales, jitter_*_relative,
+                inverse_uniform_sampling) are ignored. Rows and columns of a
+                lidar range image are beams and azimuth steps, so
+                interpolating them invents measurements. True restores
+                upstream's short-side jitter and random resized crops.
         """
         if jitter_scales_relative is None:
             jitter_scales_relative = [0.5, 1.0]
@@ -129,6 +138,7 @@ class Kinetics(torch.utils.data.Dataset):
         self._enable_multi_thread_decode = enable_multi_thread_decode
         self._inverse_uniform_sampling = inverse_uniform_sampling
         self._use_offset_sampling = use_offset_sampling
+        self._spatial_resample = spatial_resample
 
         print(self)
         print(locals())
@@ -150,6 +160,8 @@ class Kinetics(torch.utils.data.Dataset):
         else:
             self.rand_aug = rand_aug
             print("Perform rand augmentation")
+        if self.rand_aug and not spatial_resample:
+            raise ValueError("rand_aug applies geometric transforms that resample the frames; it requires spatial_resample=True")
         self.use_temporal_gradient = False
         self.temporal_gradient_rate = 0.0
 
@@ -225,10 +237,11 @@ class Kinetics(torch.utils.data.Dataset):
                 if self._test_num_spatial_crops > 1
                 else 1
             )
-            min_scale, max_scale, crop_size = (
-                [self._test_crop_size] * 3
+            crop_size = self._test_crop_size
+            min_scale = max_scale = (
+                min(size_pair(crop_size))
                 if self._test_num_spatial_crops > 1
-                else [self._train_jitter_scales[0]] * 2 + [self._test_crop_size]
+                else self._train_jitter_scales[0]
             )
             # The testing is deterministic and no jitter should be performed.
             # min_scale, max_scale, and crop_size are expect to be the same.
@@ -272,7 +285,7 @@ class Kinetics(torch.utils.data.Dataset):
                 self._test_num_ensemble_views,
                 video_meta=self._video_meta[index],
                 target_fps=self._target_fps,
-                max_spatial_scale=min_scale,
+                max_spatial_scale=min_scale if self._spatial_resample else 0,
                 use_offset=self._use_offset_sampling,
                 rigid_decode_all_video=self.mode in ["pretrain"],
             )
@@ -363,6 +376,7 @@ class Kinetics(torch.utils.data.Dataset):
                         inverse_uniform_sampling=self._inverse_uniform_sampling,
                         aspect_ratio=relative_aspect,
                         scale=relative_scales,
+                        resample=self._spatial_resample,
                     )
                     frames_list.append(new_frames)
                     label_list.append(label)
@@ -430,6 +444,7 @@ class Kinetics(torch.utils.data.Dataset):
             aspect_ratio=relative_aspect,
             scale=relative_scales,
             motion_shift=False,
+            resample=self._spatial_resample,
         )
 
         if self.pretrain_rand_erase_prob > 0.0:
