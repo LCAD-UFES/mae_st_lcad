@@ -68,7 +68,7 @@ wget -P ~/mae_st_experiments/checkpoints https://dl.fbaipublicfiles.com/video-ma
 
 ### 2.2 Environment
 
-Building the Python environment for `mae_st` is its own trial-and-error session (a bundled `environment.yml` that does not work, dependencies frozen at old releases, torch builds that differ by CUDA runtime). Tooling that makes it reproducible — an installer driven by a per-machine manifest recording what to install and why — lives in the [`installer` branch of LCAD-UFES/mae_st_lcad](https://github.com/LCAD-UFES/mae_st_lcad/tree/installer), under `_install/`; follow its README once per machine.
+Building the Python environment for `mae_st` is its own trial-and-error session (a bundled `environment.yml` that does not work, dependencies frozen at old releases, torch builds that differ by CUDA runtime). [`_install/`](_install/README.md) makes it reproducible: an installer driven by a per-platform manifest recording what to install and why, which ends by running the test suites of both clones. Follow its README once per machine; [`_install/DESIGN.md`](_install/DESIGN.md) records the reasoning behind each pin.
 
 Every command below assumes the resulting environment is active. The launchers (`run_training.sh`, `run_tensorboard.sh`, `run_tool.sh`, hence the VSCode tasks) activate it through `env.sh`, which finds conda from `CONDA_EXE` or `PATH` and activates `$MAE_ST_CONDA_ENV`, default `mae_st`.
 

@@ -1,6 +1,7 @@
 work_dirs/
 checkpoints/
 __pycache__/
-*.pyc
 *.py[cod]
 venv/
+_install/lock.*.txt
+_install/logs/
