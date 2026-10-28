@@ -425,11 +425,7 @@ class Kinetics(torch.utils.data.Dataset):
         frames = self._list_img_to_frames(list_img)
         frames = frames.permute(0, 2, 3, 1)
 
-        frames = utils.tensor_normalize(
-            frames,
-            (0.45, 0.45, 0.45),
-            (0.225, 0.225, 0.225),
-        )
+        frames = utils.tensor_normalize(frames, self._mean, self._std)
         # T H W C -> C T H W.
         frames = frames.permute(3, 0, 1, 2)
         # Perform data augmentation.

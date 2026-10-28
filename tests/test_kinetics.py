@@ -59,4 +59,14 @@ class SampleIndexTest(DatasetCase):
         ds = self.dataset(train_crop_size=(H, 40))
         self.assertGreater(len({self.window(ds[0][0][0], 40) for _ in range(6)}), 1)
 
+class NormalizationTest(DatasetCase):
+    def test_rand_aug_path_uses_the_configured_mean_and_std(self):
+        from unittest import mock
+        from mae_st.util.decoder import utils
+        seen = []
+        real = utils.tensor_normalize
+        with mock.patch.object(utils, "tensor_normalize", side_effect=lambda f, m, s: seen.append((tuple(m), tuple(s))) or real(f, m, s)):
+            self.dataset(mode="finetune", rand_aug=True, spatial_resample=True, train_jitter_scales=(16, 20), train_crop_size=16, mean=(0.1, 0.2, 0.3), std=(1.0, 2.0, 3.0))[0]
+        self.assertEqual(set(seen), {((0.1, 0.2, 0.3), (1.0, 2.0, 3.0))})
+
 if __name__ == "__main__": unittest.main()
