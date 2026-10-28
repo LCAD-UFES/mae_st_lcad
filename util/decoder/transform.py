@@ -40,6 +40,15 @@ def _pil_interp(method):
         return Image.BILINEAR
 
 
+def size_pair(size):
+    return tuple(size) if isinstance(size, (tuple, list)) else (size, size)
+
+
+def _check_fits(height, width, target_height, target_width):
+    if target_height > height or target_width > width:
+        raise ValueError(f"crop {target_height}x{target_width} does not fit in a {height}x{width} frame")
+
+
 def random_short_side_scale_jitter(
     images, min_size, max_size, inverse_uniform_sampling=False
 ):
@@ -86,22 +95,27 @@ def random_crop(images, size):
     Args:
         images (tensor): images to perform random crop. The dimension is
             `num frames` x `channel` x `height` x `width`.
-        size (int): the size of height and width to crop on the image.
+        size (int or (int, int)): the crop size; an int crops a square,
+            a pair crops (height, width).
     Returns:
         cropped (tensor): cropped images with dimension of
-            `num frames` x `channel` x `size` x `size`.
+            `num frames` x `channel` x `height` x `width` of the crop.
     """
-    if images.shape[2] == size and images.shape[3] == size:
-        return images
+    target_height, target_width = size_pair(size)
     height = images.shape[2]
     width = images.shape[3]
+    if (height, width) == (target_height, target_width):
+        return images
+    _check_fits(height, width, target_height, target_width)
     y_offset = 0
-    if height > size:
-        y_offset = int(np.random.randint(0, height - size))
+    if height > target_height:
+        y_offset = int(np.random.randint(0, height - target_height))
     x_offset = 0
-    if width > size:
-        x_offset = int(np.random.randint(0, width - size))
-    cropped = images[:, :, y_offset : y_offset + size, x_offset : x_offset + size]
+    if width > target_width:
+        x_offset = int(np.random.randint(0, width - target_width))
+    cropped = images[
+        :, :, y_offset : y_offset + target_height, x_offset : x_offset + target_width
+    ]
     return cropped
 
 
@@ -127,7 +141,8 @@ def uniform_crop(images, size, spatial_idx, scale_size=None):
     Args:
         images (tensor): images to perform uniform crop. The dimension is
             `num frames` x `channel` x `height` x `width`.
-        size (int): size of height and weight to crop the images.
+        size (int or (int, int)): the crop size; an int crops a square,
+            a pair crops (height, width).
         spatial_idx (int): 0, 1, or 2 for left, center, and right crop if width
             is larger than height. Or 0, 1, or 2 for top, center, and bottom
             crop if height is larger than width.
@@ -135,9 +150,10 @@ def uniform_crop(images, size, spatial_idx, scale_size=None):
             performing any crop.
     Returns:
         cropped (tensor): images with dimension of
-            `num frames` x `channel` x `size` x `size`.
+            `num frames` x `channel` x `height` x `width` of the crop.
     """
     assert spatial_idx in [0, 1, 2]
+    target_height, target_width = size_pair(size)
     ndim = len(images.shape)
     if ndim == 3:
         images = images.unsqueeze(0)
@@ -156,20 +172,23 @@ def uniform_crop(images, size, spatial_idx, scale_size=None):
             align_corners=False,
         )
 
-    y_offset = int(math.ceil((height - size) / 2))
-    x_offset = int(math.ceil((width - size) / 2))
+    _check_fits(height, width, target_height, target_width)
+    y_offset = int(math.ceil((height - target_height) / 2))
+    x_offset = int(math.ceil((width - target_width) / 2))
 
     if height > width:
         if spatial_idx == 0:
             y_offset = 0
         elif spatial_idx == 2:
-            y_offset = height - size
+            y_offset = height - target_height
     else:
         if spatial_idx == 0:
             x_offset = 0
         elif spatial_idx == 2:
-            x_offset = width - size
-    cropped = images[:, :, y_offset : y_offset + size, x_offset : x_offset + size]
+            x_offset = width - target_width
+    cropped = images[
+        :, :, y_offset : y_offset + target_height, x_offset : x_offset + target_width
+    ]
     if ndim == 3:
         cropped = cropped.squeeze(0)
     return cropped
