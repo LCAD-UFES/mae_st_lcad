@@ -923,7 +923,7 @@ PY
         (cd "${tooling}" && MAE_ST_REPO="${repo}" python -m unittest discover -s tests -t .) || { err "tooling tests FAILED"; rc=1; }
     else
         err "${repo##*$'\n'}"
-        err "Clone LCAD-UFES/mae_st_lcad (branch main) to ~/mae_st or set MAE_ST_REPO, then re-run with --verify-only."
+        err "Clone LCAD-UFES/mae_st_lcad (branch main) to ~/mae_st_lcad or set MAE_ST_REPO, then re-run with --verify-only."
         rc=1
     fi
     rule

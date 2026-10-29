@@ -10,7 +10,7 @@ Two directories, kept apart on purpose:
 plus the two external locations:
 
   MAE_ST_REPO_ROOT  a clone of LCAD-UFES/mae_st_lcad, branch main (the MAE-ST
-                    code with the range-image domain changes), default ~/mae_st
+                    code with the range-image domain changes), default ~/mae_st_lcad
                     ($MAE_ST_REPO); any directory name works
   DATASETS_ROOT     default ~/datasets ($MAE_ST_DATASETS)
 
@@ -34,7 +34,7 @@ TOOLING_ROOT = osp.dirname(osp.abspath(__file__))
 EXPERIMENTS_ROOT = osp.abspath(osp.expanduser(
     os.environ.get("MAE_ST_EXPERIMENTS", "~/mae_st_experiments")))
 MAE_ST_REPO_ROOT = osp.abspath(osp.expanduser(
-    os.environ.get("MAE_ST_REPO", "~/mae_st")))
+    os.environ.get("MAE_ST_REPO", "~/mae_st_lcad")))
 DATASETS_ROOT = osp.abspath(osp.expanduser(
     os.environ.get("MAE_ST_DATASETS", "~/datasets")))
 
