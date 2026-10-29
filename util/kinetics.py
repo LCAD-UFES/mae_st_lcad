@@ -65,6 +65,7 @@ class Kinetics(torch.utils.data.Dataset):
         spatial_resample=False,
         temporal_sample_index=-1,
         spatial_sample_index=-1,
+        csv_file=None,
     ):
         """
         Construct the Kinetics video loader with a given csv file. The format of
@@ -81,6 +82,9 @@ class Kinetics(torch.utils.data.Dataset):
                 from the train or val set, and sample one clip per video.
                 For the test mode, the data loader will take data from test set,
                 and sample multiple clips per video.
+            csv_file (string): the csv to read, relative to path_to_data_dir.
+                None (default) reads the one named after the mode: train.csv
+                for pretrain and finetune, val.csv, test.csv.
             num_retries (int): number of retries.
             spatial_resample (bool): if False (default), frames are never
                 interpolated: decoding keeps the native resolution, crops
@@ -127,6 +131,7 @@ class Kinetics(torch.utils.data.Dataset):
         self._video_meta = {}
         self._num_retries = num_retries
         self._path_to_data_dir = path_to_data_dir
+        self._csv_file = csv_file
 
         self._train_jitter_scales = train_jitter_scales
         self._train_crop_size = train_crop_size
@@ -184,7 +189,7 @@ class Kinetics(torch.utils.data.Dataset):
         }
         path_to_file = os.path.join(
             self._path_to_data_dir,
-            "{}.csv".format(csv_file_name[self.mode]),
+            self._csv_file or "{}.csv".format(csv_file_name[self.mode]),
         )
         assert pathmgr.exists(path_to_file), "{} dir not found".format(path_to_file)
 
