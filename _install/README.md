@@ -9,7 +9,7 @@ Installing MAE-ST by hand is a long trial-and-error session: one dependency is f
 The verification at the end runs the test suites of both repositories, so clone them first. Any directory names work; `~/mae_st_lcad` is the tooling's default for the mae_st_lcad clone, otherwise set `MAE_ST_REPO`.
 
 ```bash
-git clone https://github.com/LCAD-UFES/mae_st_lcad.git ~/mae_st
+git clone https://github.com/LCAD-UFES/mae_st_lcad.git ~/mae_st_lcad
 git clone -b mae_st_tooling https://github.com/LCAD-UFES/mae_st_lcad.git ~/mae_st_tooling
 cd ~/mae_st_tooling/_install
 

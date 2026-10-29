@@ -229,7 +229,7 @@ show_preamble() {
     if [[ ${DIVERGED} -eq 1 ]]; then
         show_divergence_help
     else
-        ok "  Host matches the manifest target. Option 3 should just work."
+        ok "  Host matches the manifest target. Option 4 should just work."
         rule
     fi
 }
