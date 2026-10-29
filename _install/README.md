@@ -6,7 +6,7 @@ Installing MAE-ST by hand is a long trial-and-error session: one dependency is f
 
 ## Quick start, on a machine that already has a manifest
 
-The verification at the end runs the test suites of both repositories, so clone them first. Any directory names work; `~/mae_st` is the tooling's default for the mae_st clone, otherwise set `MAE_ST_REPO`.
+The verification at the end runs the test suites of both repositories, so clone them first. Any directory names work; `~/mae_st_lcad` is the tooling's default for the mae_st_lcad clone, otherwise set `MAE_ST_REPO`.
 
 ```bash
 git clone https://github.com/LCAD-UFES/mae_st_lcad.git ~/mae_st
@@ -336,7 +336,7 @@ Once this passes, reinstall under the real environment name (or clone the test o
 
 **An optional row fails and the script continues with a yellow warning.** `required=no` rows (`wandb`, `tmux`) are allowed to fail; the run record says why. Only configs that set `wandb` need it, and a system `tmux` serves the launchers just as well.
 
-**The tests fail with `no mae_st clone at ...`.** Clone `mae_st_lcad` branch `main` to `~/mae_st`, or export `MAE_ST_REPO` to wherever it is, and run `./conda.sh <manifest> --verify-only`.
+**The tests fail with `no mae_st clone at ...`.** Clone `mae_st_lcad` branch `main` to `~/mae_st_lcad`, or export `MAE_ST_REPO` to wherever it is, and run `./conda.sh <manifest> --verify-only`.
 
 **Verification says no CUDA device is visible.** Either you installed a `cpu` build, or you installed a CUDA build whose runtime is newer than the driver supports. Compare the index you chose in step 6 against the driver's maximum from step 2.
 

@@ -45,7 +45,7 @@ The tooling is code only and never holds your data. The locations are all decide
 |---|---|---|
 | `TOOLING_ROOT` — this directory: `custom/`, `tools/`, launchers, tasks | wherever it is checked out | — |
 | `EXPERIMENTS_ROOT` — **yours**: `configs/`, `work_dirs/`, `checkpoints/` | `~/mae_st_experiments` | `$MAE_ST_EXPERIMENTS` |
-| `MAE_ST_REPO_ROOT` — a clone of `mae_st_lcad`, branch `main` | `~/mae_st` | `$MAE_ST_REPO` |
+| `MAE_ST_REPO_ROOT` — a clone of `mae_st_lcad`, branch `main` | `~/mae_st_lcad` | `$MAE_ST_REPO` |
 | `DATASETS_ROOT` — datasets | `~/datasets` | `$MAE_ST_DATASETS` |
 
 Every tool accepts bare names and resolves them against these roots: a config name is looked up in `EXPERIMENTS_ROOT/configs/`, a dataset name under `DATASETS_ROOT`, a checkpoint name under `EXPERIMENTS_ROOT/checkpoints/`, a `scalars.json` path under `EXPERIMENTS_ROOT/work_dirs/`. Absolute paths are always accepted as well.
@@ -55,7 +55,7 @@ Every tool accepts bare names and resolves them against these roots: a config na
 Clone the `main` branch of `mae_st_lcad`. Any directory name works: the bootstrapper registers the clone as the package `mae_st`, the name its code imports itself under.
 
 ```bash
-git clone https://github.com/LCAD-UFES/mae_st_lcad.git ~/mae_st
+git clone https://github.com/LCAD-UFES/mae_st_lcad.git ~/mae_st_lcad
 mkdir -p ~/mae_st_experiments/configs
 ```
 
