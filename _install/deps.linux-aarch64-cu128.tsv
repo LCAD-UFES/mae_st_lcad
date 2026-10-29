@@ -28,9 +28,8 @@
 #
 #	cuda= is the newest runtime the DRIVER supports, as nvidia-smi prints it.
 #	The validation ran on driver 595.71.05 (CUDA 13.2); the reference machine
-#	ran driver 580.173.02 on 2026-10-15, hence 13.0 here [to confirm with
-#	nvidia-smi]. The cu128 wheels need a driver >= 570 and compile nothing, so
-#	either works.
+#	runs driver 580.173.02 (CUDA 13.0, checked with nvidia-smi on 2026-10-27).
+#	The cu128 wheels need a driver >= 570 and compile nothing, so either works.
 #
 #!target	os=ubuntu 24.04	arch=aarch64	sm=121	cuda=13.0	python=3.10.20	gpu=NVIDIA GB10
 #!envname	mae_st

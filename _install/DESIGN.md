@@ -93,7 +93,7 @@ A wheel's filename encodes name, version, Python, ABI and platform; there is one
 
 ## 5. Reference platform and status
 
-`deps.linux-aarch64-cu128.tsv` targets an NVIDIA DGX Spark: linux-aarch64, GB10 (Blackwell), compute capability 12.1, Ubuntu 24.04. `cuda=` in `#!target` is the newest runtime the **driver** supports, as `nvidia-smi` prints it, because that is what the preamble compares; it is not the toolkit version. The driver was 595.71.05 (CUDA 13.2) at the August validation and 580.173.02 on 2026-10-15; the manifest records the latter as `cuda=13.0`, to confirm on the next run. The cu128 wheels need a driver ≥ 570 and nothing compiles CUDA code, so both work.
+`deps.linux-aarch64-cu128.tsv` targets an NVIDIA DGX Spark: linux-aarch64, GB10 (Blackwell), compute capability 12.1, Ubuntu 24.04. `cuda=` in `#!target` is the newest runtime the **driver** supports, as `nvidia-smi` prints it, because that is what the preamble compares; it is not the toolkit version. The driver was 595.71.05 (CUDA 13.2) at the August validation and 580.173.02 on 2026-10-15; the manifest records the latter as `cuda=13.0`, confirmed with `nvidia-smi` on 2026-10-27. The cu128 wheels need a driver ≥ 570 and nothing compiles CUDA code, so both work.
 
 ### Verified 2026-08-13 (installer v1.2.0)
 
