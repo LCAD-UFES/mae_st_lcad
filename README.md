@@ -74,16 +74,17 @@ Every command below assumes the resulting environment is active. The launchers (
 
 ### 2.3 A dataset (the minimum the loader needs)
 
-The `Kinetics` dataset class needs a directory holding `train.csv`, `val.csv` and `test.csv`. Each line is `absolute_path_to_video label` (one space, label an integer, ignored in pretraining but it must parse). Paths cannot contain spaces. Which csv is read is decided by the dataset *mode*: `pretrain`→`train.csv`, `val`→`val.csv`, `test`→`test.csv`.
+The `Kinetics` dataset class needs a directory holding `train.csv`, `val.csv` and `test.csv`. Each line is `absolute_path_to_video label` (one space, label an integer, ignored in pretraining but it must parse). Paths cannot contain spaces. Which csv is read is decided by the dataset *mode*: `pretrain`→`train.csv`, `val`→`val.csv`, `test`→`test.csv`; a `csv_file="name.csv"` in the config's dataset reads that csv of the directory instead, whatever the mode.
 
 Range-image clips come from [lidar_sweep_viewer2](https://github.com/LCAD-UFES/lidar_sweep_viewer2), which writes a folder of mp4s and no csvs. `tools/prepare_dataset.py` writes them, on the machine that trains, since the paths are absolute:
 
 ```bash
 python tools/prepare_dataset.py ~/datasets/range_lidar_slice10 --min-frames 20   # every clip in all three csvs (overfit protocol)
 python tools/prepare_dataset.py ~/datasets/my_split --split prefix                # train_/val_/test_ file prefixes
+python tools/prepare_dataset.py ~/datasets/waymo_open_dataset/videos --prefix train10 --out ~/datasets/waymo_open_dataset --min-frames 20   # train10_*.mp4 -> train10.csv
 ```
 
-`--min-frames` drops clips shorter than the config's `num_frames`; `--limit N` keeps the first N per split.
+`--min-frames` drops clips shorter than the config's `num_frames`; `--limit N` keeps the first N per split. `--prefix P [P ...]` writes one csv per lsv2 slice, named after its `prefix` job key, for a config's `csv_file`; several slices can then share one output folder.
 
 A 10-video slice of Kinetics-400 is built by `tools/prepare_k400_slice.py` into `~/datasets/kinetics400_slice10/` (10 classes, short edge 256, `labels.txt` with the alphabetical class ids). It downloads only the first ~150 MB of one official tarball, validates each video by decoding it, resizes with PyAV (no `ffmpeg` CLI needed) and writes the csvs — see its `--help` for a larger slice.
 
@@ -152,6 +153,7 @@ The tasks are only a front end: each one answers its prompts and runs a command 
 | `compute_loss` | checkpoint: **a path or name** — including a published, fused-qkv one | `… tools/compute_loss.py my_config.py --checkpoint video-mae-200x4-nonorm.pth --dataset my_dataset` |
 | `compute_loss` | dataset: any dir holding the csvs | `… --dataset ~/datasets/kinetics400_slice10` |
 | `compute_loss` | *(not in the task)* read `train.csv` or `test.csv` instead of `val.csv` | `… --dataset my_dataset --mode pretrain` (or `--mode test`) |
+| `compute_loss` | *(not in the task)* read another csv of the dir (`csv_file`); default: the config's, if set | `… --dataset my_dataset --csv train10.csv` |
 | `compute_loss` | *(not in the task)* override the batch size | `… --dataset my_dataset --batch-size 4` |
 | `plot_loss` | log_file: a `scalars.json` | `python ~/mae_st_tooling/tools/plot_loss.py <run>/vis_data/scalars.json` |
 | `plot_loss` | log_file: a run directory | `… tools/plot_loss.py mae_st_overfit_tests/my_config/<timestamp>` |
@@ -305,10 +307,10 @@ Reads the JSON-lines file (a path, or one relative to `EXPERIMENTS_ROOT/work_dir
 
 ### 3.11 `tools/prepare_dataset.py` and `tools/prepare_k400_slice.py`
 
-`prepare_dataset.py <videos_dir> [--split all|prefix] [--limit N] [--min-frames K] [--out DIR]` writes the three csvs for a folder of mp4s (§2.3).
+`prepare_dataset.py <videos_dir> [--split all|prefix | --prefix P [P ...]] [--limit N] [--min-frames K] [--out DIR]` writes the three csvs for a folder of mp4s, or one csv per `--prefix` slice (§2.3).
 
 `prepare_k400_slice.py` builds the Kinetics slice: annotations and a partial download of one validation tarball from the CVD Foundation S3 mirror (tar+gzip is a stream, so the first 150 MB already hold dozens of complete videos), a full-decode check to drop the truncated tail, selection of N videos of distinct classes, PyAV resize to short edge 256 with libx264, alphabetical class ids in `labels.txt`, and the same videos written to all three csvs (`--out-dir`, `--raw-dir`, `--n-videos`, `--partial-mb`).
 
 ### 3.12 Tests
 
-`python -m unittest discover -s tests -t .` from this directory, with `$MAE_ST_REPO` pointing at the mae_st clone. They run on CPU: the hook layouts, and an end-to-end run over two synthetic videos (prepare_dataset, two epochs of train.py with a stand-in wandb, compute_loss on the last checkpoint, the accum_iter refusal).
+`python -m unittest discover -s tests -t .` from this directory, with `$MAE_ST_REPO` pointing at the mae_st clone. They run on CPU: the hook layouts, prepare_dataset's `--prefix`, and an end-to-end run over two synthetic videos (prepare_dataset, two epochs of train.py with a stand-in wandb, compute_loss on the last checkpoint, the accum_iter refusal).

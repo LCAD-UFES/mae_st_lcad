@@ -10,6 +10,9 @@
                on --mode (default "val" -> val.csv). Point it at the training
                set to recompute train loss through the identical code path,
                or at a held-out set for the generalization gap.
+  --csv        the csv to read instead (Kinetics csv_file), e.g. a slice
+               written by prepare_dataset.py --prefix; default: the csv_file
+               of the config's dataset for that mode, if it sets one
   --checkpoint which weights to evaluate, same scheme as train.py:
                `last` = the newest checkpoint of this config; a path (or a
                bare name under EXPERIMENTS_ROOT/checkpoints/), which may be a
@@ -52,6 +55,7 @@ def main():
                              "name; omitted = the config's load_from")
     parser.add_argument("--mode", default="val", choices=["val", "pretrain", "test"],
                         help="Kinetics mode -> which csv is read (val.csv by default)")
+    parser.add_argument("--csv", default=None, help="csv to read instead of the mode's (Kinetics csv_file)")
     parser.add_argument("--batch-size", type=int, default=None)
     cli = parser.parse_args()
 
@@ -81,10 +85,12 @@ def main():
         device = torch.device(cfg.get("device", "cuda"))
         batch_size = cli.batch_size or cfg.get("val_batch_size", 2)
 
-        dataset_kwargs = dict(cfg["val_dataset"], path_to_data_dir=dataset_dir, mode=cli.mode)
+        role = {"pretrain": "train_dataset", "val": "val_dataset"}.get(cli.mode)
+        csv_file = cli.csv or (cfg[role].get("csv_file") if role else None)
+        dataset_kwargs = dict(cfg["val_dataset"], path_to_data_dir=dataset_dir, mode=cli.mode, csv_file=csv_file)
         dataset = exp.build_dataset(dataset_kwargs)
         clips, stems = exp.load_fixed_clips(dataset, None, seed)
-        print(f"Dataset: {len(clips)} clips from {len(dataset)} entries in {dataset_dir}")
+        print(f"Dataset: {len(clips)} clips from {len(dataset)} entries in {dataset_dir} (csv {csv_file or 'of the mode'})")
 
         model = exp.build_model(cfg, device)
         load_mae_checkpoint(model, checkpoint)
@@ -107,6 +113,7 @@ def main():
                 "checkpoint_source": source,
                 "dataset": dataset_dir,
                 "mode": cli.mode,
+                "csv_file": csv_file,
                 "mask_ratio": cfg["mask_ratio"],
                 "seed": seed,
                 "mean_loss": mean_loss,

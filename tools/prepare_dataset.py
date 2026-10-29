@@ -1,6 +1,6 @@
 """Write the train/val/test csvs mae_st's Kinetics loader reads, for a folder of videos.
 
-    python tools/prepare_dataset.py <videos_dir> [--split all|prefix] [--limit N] [--min-frames K] [--out DIR]
+    python tools/prepare_dataset.py <videos_dir> [--split all|prefix | --prefix P [P ...]] [--limit N] [--min-frames K] [--out DIR]
 
 The loader reads <dataset>/{train,val,test}.csv, one `absolute_path label` per
 line. Absolute paths tie the csvs to the machine, so run this where training
@@ -11,6 +11,8 @@ lidar_sweep_viewer2 (lsv2), which writes clips and no csvs.
                 val loss is measured on the training clips (default)
 --split prefix  by file-name prefix, `train_`, `val_`, `test_` (lsv2's `prefix`
                 job key); a split with no videos is an error
+--prefix P ...  one csv per slice instead: P_*.mp4 -> <out>/P.csv, for the
+                Kinetics csv_file of the config; P is an lsv2 job's `prefix`
 --limit N       keep the first N videos of each split, in file-name order
 --min-frames K  drop videos with fewer than K frames, e.g. a trailing partial
                 clip shorter than the config's num_frames
@@ -42,22 +44,25 @@ def select(videos, split, mode):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("videos_dir")
-    p.add_argument("--split", choices=("all", "prefix"), default="all")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--split", choices=("all", "prefix"), default="all")
+    g.add_argument("--prefix", nargs="+", default=None)
     p.add_argument("--limit", type=int, default=None)
     p.add_argument("--min-frames", type=int, default=0)
     p.add_argument("--out", default=None, help="where the csvs go (default: videos_dir)")
     a = p.parse_args(argv)
     videos = sorted(osp.abspath(v) for v in glob.glob(osp.join(a.videos_dir, "*.mp4")))
     if not videos: sys.exit(f"no .mp4 files in {a.videos_dir}")
+    if a.prefix: videos = [v for v in videos if any(osp.basename(v).startswith(q + "_") for q in a.prefix)]
     if any(" " in v for v in videos): sys.exit("video paths must not contain spaces: the csv format separates path and label with one")
     short = [v for v in videos if a.min_frames and frame_count(v) < a.min_frames]
     for v in short: print(f"dropped (fewer than {a.min_frames} frames): {osp.basename(v)}")
     videos = [v for v in videos if v not in short]
     out = a.out or a.videos_dir
     os.makedirs(out, exist_ok=True)
-    for split in SPLITS:
-        chosen = select(videos, split, a.split)[: a.limit]
-        if not chosen: sys.exit(f"no videos for split {split!r} (--split {a.split})")
+    for split in a.prefix or SPLITS:
+        chosen = select(videos, split, "prefix" if a.prefix else a.split)[: a.limit]
+        if not chosen: sys.exit(f"no videos for {split!r}")
         with open(osp.join(out, f"{split}.csv"), "w") as f: f.writelines(f"{v} {LABEL}\n" for v in chosen)
         print(f"{split}.csv: {len(chosen)} videos")
 
