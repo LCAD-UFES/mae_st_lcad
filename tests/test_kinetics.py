@@ -70,3 +70,12 @@ class NormalizationTest(DatasetCase):
         self.assertEqual(set(seen), {((0.1, 0.2, 0.3), (1.0, 2.0, 3.0))})
 
 if __name__ == "__main__": unittest.main()
+
+class CsvFileTest(DatasetCase):
+    def test_default_reads_the_csv_of_the_mode(self):
+        self.assertEqual(len(self.dataset()._path_to_videos), 2)
+
+    def test_named_csv_replaces_the_csv_of_the_mode(self):
+        video = os.path.join(self.root, "video_001.mp4")
+        with open(os.path.join(self.root, "slice.csv"), "w") as f: f.write(f"{video} 0\n")
+        self.assertEqual(self.dataset(csv_file="slice.csv")._path_to_videos, [video])
