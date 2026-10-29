@@ -34,7 +34,7 @@
         {
             "id": "dataset",
             "type": "promptString",
-            "description": "--dataset <dir>: Kinetics data dir with val.csv (required)",
+            "description": "--dataset <dir>: Kinetics data dir with val.csv or the config's csv_file (required)",
             "default": "${env:HOME}/datasets/range_lidar_slice10"
         },
         {
