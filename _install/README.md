@@ -320,7 +320,7 @@ If you deliberately want to preserve one — archiving a machine that is being d
 
 ## Step 13 — Acceptance test
 
-Verification already ran the test suites, including a short CPU training through the tooling. The acceptance test for a new machine is a real training on its GPU: the range-lidar overfit config of the tooling (`EXAMPLE_CONFIG_overfit_range_lidar_slice10-vitb_64x2650.py`, see the tooling README), which exercises the decoder, the 64 x 2650 data path, the model at full size, mixed precision and the visualization hook. Its loss must fall and its reconstructions must converge to the input.
+Verification already ran the test suites, including a short CPU training through the tooling. The acceptance test for a new machine is a real training on its GPU: the range-lidar overfit config of the tooling (`EXAMPLE_CONFIG_overfit_waymo_train10-vitb_64x2650.py`, see the tooling README), which exercises the decoder, the 64 x 2650 data path, the model at full size, mixed precision and the visualization hook. Its loss must fall and its reconstructions must converge to the input.
 
 Once this passes, reinstall under the real environment name (or clone the test one) and remove the scratch directory.
 
