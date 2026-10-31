@@ -1,31 +1,38 @@
-# Contributing to mae_st
-We want to make contributing to this project as easy and transparent as
-possible.
+# Contributing to mae_st_lcad
 
-## Pull Requests
-We actively welcome your pull requests.
+How changes are made in this repository. [DESIGN.md](DESIGN.md) says what `main` changes over upstream; the tooling's own [CONTRIBUTING](https://github.com/LCAD-UFES/mae_st_lcad/blob/mae_st_tooling/CONTRIBUTING.md) covers its internals.
 
-1. Fork the repo and create your branch from `main`.
-2. If you've added code that should be tested, add tests.
-3. If you've changed APIs, update the documentation.
-4. Ensure the test suite passes.
-5. Make sure your code lints.
-6. If you haven't already, complete the Contributor License Agreement ("CLA").
+## Where a change belongs
 
-## Contributor License Agreement ("CLA")
-In order to accept your pull request, we need you to submit a CLA. You only need
-to do this once to work on any of Facebook's open source projects.
+- **`main`**: the model and data code. Domain changes (what range images need) and fixes that keep upstream running belong here, and so does efficiency work on the model. A change here must keep upstream's behaviour as the default unless the domain forbids it (as `spatial_resample=False` does), and say so in the commit message.
+- **`mae_st_tooling`**: everything about *using* the model (configs, drivers, visualization, the installer). It imports `main` and never patches it; if the tooling needs something from `main`, that is a commit on `main`.
 
-Complete your CLA here: <https://code.facebook.com/cla>
+## Tests
 
-## Issues
-We use GitHub issues to track public bugs. Please ensure your description is
-clear and has sufficient instructions to be able to reproduce the issue.
+Run both suites before committing; they run on CPU in seconds.
 
-Facebook has a [bounty program](https://www.facebook.com/whitehat/) for the safe
-disclosure of security bugs. In those cases, please go through the process
-outlined on that page and do not file a public issue.
+```bash
+cd ~/mae_st_lcad   && python -m unittest discover -s tests -t .
+cd ~/mae_st_tooling && python -m unittest discover -s tests -t .
+```
 
-## License
-By contributing to mae, you agree that your contributions will be licensed
-under the LICENSE file in the root directory of this source tree.
+A change of behaviour comes with a test. A change meant to preserve behaviour (a refactor, an efficiency change) comes with a check of numerical equivalence against the previous code, described in the commit message.
+
+## Commits
+
+- English, one logical change per commit.
+- The message says what changed, **why**, and how it was checked. Upstream commits carry no explanations; ours are the documentation of the fork.
+- No names of people or machines in code, docs or messages. Paths come from arguments or environment variables with defaults.
+
+## Branches and tags
+
+The repository has two branches, `main` and `mae_st_tooling`. Work is not kept in other long-lived branches. Superseded states are frozen as annotated tags `archive/<branch>-<yyyy-mm>`, so they stay reachable without appearing in the branch list:
+
+```bash
+git tag -l 'archive/*'
+git switch -c <name> archive/<tag>     # to look at or continue from one
+```
+
+## Upstream
+
+`main` keeps upstream's history (`facebookresearch/mae_st` up to `1e6b68a`) and its files: [PRETRAIN.md](PRETRAIN.md), [FINETUNE.md](FINETUNE.md), [DATASET.md](DATASET.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and [LICENSE](LICENSE) (CC-BY-NC 4.0) are upstream's and are left as they are. Contributions are licensed under the same LICENSE.

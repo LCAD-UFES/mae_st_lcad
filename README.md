@@ -1,126 +1,62 @@
-## Masked Autoencoders As Spatiotemporal Learners: A PyTorch Implementation
+# mae_st_lcad
 
-<p align="center">
-  <img src="https://github.com/haooooooqi/visualization/blob/main/teaser.png" width="560">
-</p>
+MAE-ST ([Masked Autoencoders As Spatiotemporal Learners](https://arxiv.org/abs/2205.09113), Feichtenhofer et al., 2022) adapted to lidar range-image videos.
 
+This repository is a fork of [facebookresearch/mae_st](https://github.com/facebookresearch/mae_st). Upstream trains a video encoder by masking most of a clip and reconstructing it, on natural-image video (Kinetics). Here the same model learns from the range images of a rotating lidar: each frame is one sweep, a row is a laser beam and a column an azimuth step (64 x 2650 for the Waymo top lidar, 10 frames per second).
 
-This is a PyTorch/GPU re-implementation of the paper [Masked Autoencoders As Spatiotemporal Learners](https://arxiv.org/abs/2205.09113):
+That change of domain is not just a different dataset. Range images are a few rows tall and thousands of columns wide, so frames and patches are not square; and their pixels are measurements, so the image must never be interpolated. Branch `main` holds upstream's code plus the commits that make this work: rectangular patches and crops, no resampling by default, fixed clip and crop positions for overfit tests, a PyAV video decoder, and the fixes needed to run on a current PyTorch outside Meta's infrastructure. [DESIGN.md](DESIGN.md) explains each change and why it was made.
+
+The upstream documentation (fine-tuning, pre-training on Kinetics, the published checkpoints) is kept as it was: [PRETRAIN.md](PRETRAIN.md), [FINETUNE.md](FINETUNE.md), [DATASET.md](DATASET.md), and upstream's README at [facebookresearch/mae_st](https://github.com/facebookresearch/mae_st/blob/main/README.md).
+
+## How to use it
+
+`main` is used as a library, not run directly. Training, evaluation and visualization go through the tooling in branch [`mae_st_tooling`](https://github.com/LCAD-UFES/mae_st_lcad/tree/mae_st_tooling): a training is described by a Python config file, launched by one command (optionally, made more convenient with a VSCode task), and leaves behind a directory with the config it used, checkpoints, the loss curve and reconstruction videos.
+
+The work is spread over four directories, each in its own place, so code, experiments and data never mix:
+
+| directory | what | default |
+|---|---|---|
+| this repository, branch `main` | the model and data code | `~/mae_st_lcad` |
+| this repository, branch `mae_st_tooling` | the tooling and the environment installer | `~/mae_st_tooling` |
+| experiments | your configs, and what trainings write | `~/mae_st_experiments` |
+| datasets | videos and their csv lists | `~/datasets` |
+
+Each default can be changed with an environment variable (`MAE_ST_REPO`, `MAE_ST_EXPERIMENTS`, `MAE_ST_DATASETS`).
+
+### Minimal training
+
+```bash
+# 1. code
+git clone https://github.com/LCAD-UFES/mae_st_lcad.git ~/mae_st_lcad
+git clone -b mae_st_tooling https://github.com/LCAD-UFES/mae_st_lcad.git ~/mae_st_tooling
+
+# 2. environment (conda), once per machine; see _install/README.md for a machine without a manifest
+cd ~/mae_st_tooling/_install && ./conda.sh deps.linux-aarch64-cu128.tsv
+conda activate mae_st
+
+# 3. dataset: videos from lidar_sweep_viewer2, then the csv that lists them
+python ~/mae_st_tooling/tools/prepare_dataset.py ~/datasets/waymo_open_dataset/videos \
+    --prefix train10 --out ~/datasets/waymo_open_dataset --min-frames 20
+
+# 4. config
+mkdir -p ~/mae_st_experiments/configs
+cp ~/mae_st_tooling/EXAMPLE_CONFIG_overfit_waymo_train10-vitb_64x2650.py \
+   ~/mae_st_experiments/configs/my_first_run.py
+
+# 5. train (in tmux, so it survives a dropped connection), then plot the loss
+bash ~/mae_st_tooling/run_training.sh my_first_run.py Sim
+python ~/mae_st_tooling/tools/plot_loss.py mae_st_overfit_tests/my_first_run/
 ```
-@Article{MaskedAutoencodersSpatiotemporal2022,
-  author  = {Christoph Feichtenhofer and Haoqi Fan and Yanghao Li and Kaiming He},
-  journal = {arXiv:2205.09113},
-  title   = {Masked Autoencoders As Spatiotemporal Learners},
-  year    = {2022},
-}
-```
-Another implementation that supports AVA and SSv2 downstream evaluation is available in [PySlowFast](https://github.com/facebookresearch/SlowFast).
 
-* This repo is a modification on the [MAE repo](https://github.com/facebookresearch/mae). Installation and preparation follow [INSTALL.md](https://github.com/facebookresearch/SlowFast/blob/main/INSTALL.md).
+The videos come from [lidar_sweep_viewer2](https://github.com/LCAD-UFES/lidar_sweep_viewer2), which converts Waymo Open Dataset segments into range-image clips. The tooling's [README](https://github.com/LCAD-UFES/mae_st_lcad/blob/mae_st_tooling/README.md) covers every command, option and output.
 
-* This repo is based on [`timm==0.3.2`](https://github.com/rwightman/pytorch-image-models), for which a [fix](https://github.com/rwightman/pytorch-image-models/issues/420#issuecomment-776459842) is needed to work with PyTorch 1.8.1+.
+## Branches
 
+- `main`: the model and data code.
+- `mae_st_tooling`: the tooling.
 
+Earlier states of the project are kept as tags `archive/*`.
 
-### Catalog
+## License
 
-- [x] Visualization demo
-- [x] Pre-trained checkpoints + fine-tuning code + testing code
-- [x] Pre-training code
-
-### Visualization demo
-
-
-Visualization of MAE output with 95% (left) and 98% (right) mask rate on the same video.
-<div align="center">
-  <img src="demo/mr-95-demo-vid-0.gif" width="400px"/> <img src="demo/mr-98-demo-vid-0.gif" width="400px"/>
-</div>
-<div align="center">
-  <img src="demo/mr-95-demo-vid-1.gif" width="400px"/> <img src="demo/mr-98-demo-vid-1.gif" width="400px"/>
-</div>
-<div align="center">
-  <img src="demo/mr-95-demo-vid-2.gif" width="400px"/> <img src="demo/mr-98-demo-vid-2.gif" width="400px"/>
-</div>
-<div align="center">
-  <img src="demo/mr-95-demo-vid-3.gif" width="400px"/> <img src="demo/mr-98-demo-vid-3.gif" width="400px"/>
-</div>
-<div align="center">
-  <img src="demo/mr-95-demo-vid-4.gif" width="400px"/> <img src="demo/mr-98-demo-vid-4.gif" width="400px"/>
-</div>
-
-Run our interactive visualization demo using [Colab notebook](TO_BE_ADD) (no GPU needed):
-<p align="center">
-  <img src="https://github.com/haooooooqi/visualization/blob/main/demo-preview.png" width="600">
-</p>
-
-### Fine-tuning with pre-trained checkpoints
-
-The following table provides the pre-trained checkpoints used in the paper, pretrained with **90%** mask ratio and **1600 effective epochs**, converted from the PySlowFast codebase:
-<table><tbody>
-<!-- START TABLE -->
-<!-- TABLE HEADER -->
-<th valign="bottom"></th>
-<th valign="bottom">ViT-Large</th>
-<th valign="bottom">ViT-Huge</th>
-
-<!-- TABLE BODY -->
-<tr><td align="left">pre-trained checkpoint on Kinetics-400</td>
-<td align="center"><a href="https://dl.fbaipublicfiles.com/video-mae/pretrain/mae_pretrain_vit_large_k400.pth">download</a></td>
-<td align="center"><a href="https://dl.fbaipublicfiles.com/video-mae/pretrain/mae_pretrain_vit_huge_k400.pth">download</a></td>
-</tr>
-<tr><td align="left">md5</td>
-
-<td align="center"><tt>edf3a5</tt></td>
-<td align="center"><tt>3d7f64</tt></td>
-</tr>
-</tbody></table>
-
-<table><tbody>
-<!-- START TABLE -->
-<!-- TABLE HEADER -->
-<th valign="bottom"></th>
-<th valign="bottom">ViT-Large</th>
-<th valign="bottom">ViT-Huge</th>
-
-
-<tr><td align="left">pre-trained checkpoint on Kinetics-600</td>
-<td align="center"><a href="https://dl.fbaipublicfiles.com/video-mae/pretrain/mae_pretrain_vit_large_k600.pth">download</a></td>
-<td align="center"><a href="https://dl.fbaipublicfiles.com/video-mae/pretrain/mae_pretrain_vit_huge_k600.pth">download</a></td>
-</tr>
-<tr><td align="left">md5</td>
-
-<td align="center"><tt>9a9645</tt></td>
-<td align="center"><tt>27495e</tt></td>
-</tr>
-</tbody></table>
-
-<table><tbody>
-<!-- START TABLE -->
-<!-- TABLE HEADER -->
-<th valign="bottom"></th>
-<th valign="bottom">ViT-Large</th>
-<th valign="bottom">ViT-Huge</th>
-
-
-<tr><td align="left">pre-trained checkpoint on Kinetics-700</td>
-<td align="center"><a href="https://dl.fbaipublicfiles.com/video-mae/pretrain/mae_pretrain_vit_large_k700.pth">download</a></td>
-<td align="center"><a href="https://dl.fbaipublicfiles.com/video-mae/pretrain/mae_pretrain_vit_huge_k700.pth">download</a></td>
-</tr>
-<tr><td align="left">md5</td>
-
-<td align="center"><tt>cdbada</tt></td>
-<td align="center"><tt>4c4e3c</tt></td>
-</tr>
-</tbody></table>
-
-
-The fine-tuning instruction is in [FINETUNE.md](FINETUNE.md).
-
-
-### Pre-training
-
-The pre-training instruction is in [PRETRAIN.md](PRETRAIN.md).
-
-### License
-
-This project is under the CC-BY-NC 4.0 license. See [LICENSE](LICENSE) for details.
+CC-BY-NC 4.0, as upstream: see [LICENSE](LICENSE).
