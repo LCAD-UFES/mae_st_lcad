@@ -31,8 +31,9 @@ def find_scalars(path):
     if osp.isfile(path):
         return path
     candidates = [osp.join(path, "vis_data", "scalars.json")]
+    # run dirs are [<run_tag>-]<ts>: newest first by the timestamp suffix
     candidates += sorted(glob.glob(osp.join(path, "*", "vis_data", "scalars.json")),
-                         reverse=True)  # run dirs are timestamps: newest first
+                         key=lambda c: osp.basename(osp.dirname(osp.dirname(c)))[-15:], reverse=True)
     for c in candidates:
         if osp.isfile(c):
             return c

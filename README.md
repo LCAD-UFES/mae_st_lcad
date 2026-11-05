@@ -66,18 +66,20 @@ EXPERIMENTS_ROOT/work_dirs/mae_st_overfit_tests/<config>/
 ├── <config>.py                 the config used
 ├── last_checkpoint             path of the newest epoch_N.pth
 ├── epoch_N.pth                 every save_every_epochs; the newest max_keep_ckpts (2) are kept
-├── <timestamp>/                one per invocation; a resume opens a new one and continues the curve
+├── [<run_tag>-]<timestamp>/    one per invocation; a resume opens a new one and continues the curve
 │   ├── <timestamp>.log         the console
 │   ├── tb/                     TensorBoard events
 │   └── vis_data/
 │       ├── scalars.json        one line per epoch: {epoch, loss, val_loss, lr, time}
 │       └── epoch*_iter*/<clip>_loss<value>.mp4   panels: original, masked, reconstruction, error
-└── compute_loss/<timestamp>-<checkpoint>/   log, json with the losses, videos
+└── compute_loss/[<run_tag>-]<timestamp>-<checkpoint>/   log, json with the losses, videos
 ```
+
+An optional `run_tag = "lr1e-3"` in the config prefixes the run and compute_loss directories (and the tmux session) so a group of runs is easy to find. It labels runs, not checkpoints: `epoch_N.pth` and `last_checkpoint` belong to the config, so a variant to compare against goes in a config with its own name.
 
 ### Resources
 
-Measured 2026-10-29 on a DGX Spark (GB10) with the example config: 3.7 s per iteration at batch 1, 68 GB peak memory, ~89 s per epoch of 18 clips including validation, so ~74 h for 3000 epochs. A checkpoint is 1.3 GB; a visualization call writes ~35 MB and takes ~33 s, so keep `visualize_every_iterations` in the hundreds on long runs.
+Measured 2026-10-29 on a DGX Spark (GB10) with the example config: 3.7 s per iteration at batch 1, 68 GB peak memory, ~89 s per epoch of 18 clips including validation, so ~74 h for 3000 epochs. A checkpoint is 1.3 GB; a visualization call writes ~35 MB and takes ~33 s, so keep `visualize_every_iterations` in the hundreds on long runs. `ReconstructionVideoHook(panel_size=(H, W))` resizes each of the four panels, larger to inspect or smaller to save disk.
 
 ## 3. Tests
 

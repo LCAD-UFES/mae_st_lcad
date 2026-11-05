@@ -32,4 +32,9 @@ class LayoutTest(unittest.TestCase):
         self.assertEqual(self.render(16, 60, layout="horizontal")[1], (16, 240))
         with self.assertRaises(ValueError): ReconstructionVideoHook(layout="diagonal")
 
+    def test_panel_size_enlarges_or_shrinks_each_panel(self):
+        self.assertEqual(self.render(16, 60, panel_size=(32, 90))[1], (128, 90))
+        self.assertEqual(self.render(16, 60, panel_size=(8, 120))[1], (32, 120))
+        with self.assertRaises(ValueError): ReconstructionVideoHook(panel_size=(0, 10))
+
 if __name__ == "__main__": unittest.main()

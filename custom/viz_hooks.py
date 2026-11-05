@@ -21,7 +21,9 @@ ReconstructionVideoHook writes, per sample, one video with four panels,
 each at the resolution the model sees, stacked top to bottom for frames
 wider than tall (a 64 x 2650 range image gives a 256 x 2650 video) and
 side by side otherwise (layout="auto"; "vertical" or "horizontal" force
-one), as <stem>_loss<value>.mp4, with the PER-SAMPLE masked-region loss
+one); panel_size=(H, W) resizes each panel to that size (a 64 x 2650 frame
+at panel_size=(128, 1325) gives a 512 x 1325 video). Written
+as <stem>_loss<value>.mp4, with the PER-SAMPLE masked-region loss
 embedded in the filename -- same convention as the sapiens overfit hook.
 mean/std must be the dataset's normalization, so the panels come back to
 the decoded pixel values. The reconstruction panel is
@@ -38,6 +40,7 @@ from fractions import Fraction
 import av
 import numpy as np
 import torch
+import torch.nn.functional as F
 
 
 STACK_AXIS = {"vertical": 1, "horizontal": 2}  # concatenation axis of [T, H, W, 3]
@@ -52,14 +55,18 @@ class ReconstructionVideoHook:
         std=(0.225, 0.225, 0.225),
         out_subdir="vis_data",
         layout="auto",
+        panel_size=None,
     ):
         if layout != "auto" and layout not in STACK_AXIS: raise ValueError(f"layout must be auto, vertical or horizontal, got {layout!r}")
+        if panel_size is not None and not (len(panel_size) == 2 and all(int(s) == s and s > 0 for s in panel_size)):
+            raise ValueError(f"panel_size must be None or (height, width) in positive integers, got {panel_size!r}")
         self.mask_ratio = mask_ratio
         self.fps = fps
         self.mean = torch.tensor(mean).view(1, 3, 1, 1, 1)
         self.std = torch.tensor(std).view(1, 3, 1, 1, 1)
         self.out_subdir = out_subdir
         self.layout = layout
+        self.panel_size = None if panel_size is None else tuple(int(s) for s in panel_size)
 
     @torch.no_grad()
     def __call__(self, model, samples, stems, tag, run_dir):
@@ -101,17 +108,18 @@ class ReconstructionVideoHook:
         masked_u8 = self._to_uint8(masked_in)
         composite_u8 = self._to_uint8(composite)
 
+        diff = np.abs(ref_u8.astype(np.int16) - composite_u8.astype(np.int16)).mean(axis=-1).astype(np.uint8)
+        diff_u8 = np.repeat(diff[..., None], 3, axis=-1)
+        # the error map is measured at the model's resolution, then every panel is resized alike
+        ref_u8, masked_u8, composite_u8, diff_u8 = (
+            resize(v, self.panel_size) for v in (ref_u8, masked_u8, composite_u8, diff_u8))
+
         out_dir = osp.join(run_dir, self.out_subdir, tag)
         os.makedirs(out_dir, exist_ok=True)
         losses = {}
         for i, stem in enumerate(stems):
-            diff = np.abs(
-                ref_u8[i].astype(np.int16) - composite_u8[i].astype(np.int16)
-            ).mean(axis=-1).astype(np.uint8)
-            diff_u8 = np.repeat(diff[..., None], 3, axis=-1)
-
             panels = np.concatenate(
-                [ref_u8[i], masked_u8[i], composite_u8[i], diff_u8], axis=self._stack_axis(ref_u8.shape[2:4])
+                [ref_u8[i], masked_u8[i], composite_u8[i], diff_u8[i]], axis=self._stack_axis(ref_u8.shape[2:4])
             )  # [T, 4H, W, 3] or [T, H, 4W, 3]
             base = f"{stem}_loss{float(per_sample_loss[i]):.4f}"
             write_video(osp.join(out_dir, base + ".mp4"), panels, self.fps)
@@ -127,6 +135,16 @@ class ReconstructionVideoHook:
         video = video.cpu() * self.std + self.mean  # undo tensor_normalize
         video = (video * 255.0).clamp(0, 255).to(torch.uint8)
         return video.permute(0, 2, 3, 4, 1).numpy()
+
+
+def resize(video, size):
+    """uint8 [B, T, H, W, 3] -> [B, T, *size, 3]. Area interpolation averages
+    pixels when shrinking and repeats them when enlarging, so patch edges stay sharp."""
+    if size is None or tuple(size) == video.shape[2:4]:
+        return video
+    x = torch.from_numpy(video).permute(0, 1, 4, 2, 3).flatten(0, 1).float()  # [B*T, 3, H, W]
+    x = F.interpolate(x, size=size, mode="area").round().clamp(0, 255).to(torch.uint8)
+    return x.unflatten(0, video.shape[:2]).permute(0, 1, 3, 4, 2).numpy()
 
 
 def write_video(path, frames, fps):

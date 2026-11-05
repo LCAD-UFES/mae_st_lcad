@@ -18,7 +18,7 @@ import bootstrapper
 from custom.viz_hooks import ReconstructionVideoHook
 lr = min_lr = 1e-4; warmup_epochs = 0; mask_ratio = 0.5; max_epochs = 2
 save_every_epochs = 1; max_keep_ckpts = 1; visualize_every_iterations = 2
-batch_size = 1; accum_iter = {accum}; repeat_aug = 1; seed = 0; num_workers = 0; device = "cpu"
+batch_size = 1; accum_iter = {accum}; repeat_aug = 1; seed = 0; num_workers = 0; device = "cpu"; run_tag = "smoke"
 _common = dict(path_to_data_dir="ds", sampling_rate=1, num_frames=4, target_fps=10, train_crop_size=({h}, {w}), test_crop_size=({h}, {w}),
                temporal_sample_index=0, spatial_sample_index=1, train_random_horizontal_flip=False)
 train_dataset = dict(mode="pretrain", **_common); val_dataset = dict(mode="val", **_common)
@@ -59,14 +59,14 @@ class TrainEndToEndTest(unittest.TestCase):
         self.run_tool("train.py", "e2e.py", "--tensorboard", "off")
         work = os.path.join(self.tmp, "exp", "work_dirs", "mae_st_overfit_tests", "e2e")
         read = lambda p: pathlib.Path(p).read_text()
-        scalars = [json.loads(l) for l in read(glob.glob(os.path.join(work, "*", "vis_data", "scalars.json"))[0]).splitlines()]
+        scalars = [json.loads(l) for l in read(glob.glob(os.path.join(work, "smoke-*", "vis_data", "scalars.json"))[0]).splitlines()]
         self.assertEqual([r["epoch"] for r in scalars], [1, 2])
         self.assertTrue(os.path.isfile(read(os.path.join(work, "last_checkpoint")).strip()))
         clip = sorted(glob.glob(os.path.join(work, "*", "vis_data", "epoch*", "*.mp4")))[0]
         with av.open(clip) as c: self.assertEqual((c.streams.video[0].height, c.streams.video[0].width), (4 * H, W))
         self.assertEqual([json.loads(l)["step"] for l in read(self.env["FAKE_WANDB_LOG"]).splitlines()], [1, 2])
         self.run_tool("compute_loss.py", "e2e.py", "--checkpoint", "last", "--dataset", "ds")
-        self.assertEqual(len(glob.glob(os.path.join(work, "compute_loss", "*", "*.json"))), 1)
+        self.assertEqual(len(glob.glob(os.path.join(work, "compute_loss", "smoke-*-epoch_2", "*.json"))), 1)
 
     def test_accum_iter_larger_than_an_epoch_is_refused(self):
         r = self.run_tool("train.py", "bad_accum.py", "--tensorboard", "off", check=False)

@@ -10,9 +10,9 @@ all under EXPERIMENTS_ROOT:
   work_dir/<config>.py           verbatim config copy
   work_dir/last_checkpoint        one line, absolute path of the newest .pth
   work_dir/epoch_N.pth            N = epochs completed (1-based); pruned to max_keep
-  work_dir/<ts>/                  one dir per driver invocation
-  work_dir/<ts>/<ts>.log          console mirror (stdout + stderr)
-  work_dir/<ts>/vis_data/scalars.json   JSON-lines {epoch, loss, val_loss, lr, time}
+  work_dir/<run>/                 one dir per driver invocation, <run> = [<run_tag>-]<ts>
+  work_dir/<run>/<ts>.log         console mirror (stdout + stderr)
+  work_dir/<run>/vis_data/scalars.json   JSON-lines {epoch, loss, val_loss, lr, time}
 """
 
 import glob
@@ -47,6 +47,9 @@ def load_config(path):
     missing = [k for k in REQUIRED_CONFIG_KEYS if k not in cfg]
     if missing:
         raise KeyError(f"config {path} lacks required keys: {missing}")
+    tag = cfg.get("run_tag")
+    if tag is not None and not (isinstance(tag, str) and re.fullmatch(r"[A-Za-z0-9_.+-]+", tag)):
+        raise ValueError(f"config {path}: run_tag must be a non-empty string of letters, digits and _.+-, got {tag!r}")
     cfg["__config_path__"] = path
     cfg["work_dir"] = osp.expanduser(cfg["work_dir"])
     return cfg
@@ -56,10 +59,15 @@ def timestamp():
     return time.strftime("%Y%m%d_%H%M%S")
 
 
-def make_run_dir(work_dir, config_path, ts):
-    """work_dir/<ts>/vis_data, plus verbatim config copies at work_dir root
+def run_name(cfg, ts):
+    """<run_tag>-<ts> when the config sets run_tag, else <ts>."""
+    return f"{cfg['run_tag']}-{ts}" if cfg.get("run_tag") else ts
+
+
+def make_run_dir(work_dir, config_path, name):
+    """work_dir/<name>/vis_data, plus verbatim config copies at work_dir root
     and inside the run dir (sapiens layout)."""
-    run_dir = osp.join(work_dir, ts)
+    run_dir = osp.join(work_dir, name)
     os.makedirs(osp.join(run_dir, "vis_data"), exist_ok=True)
     name = osp.basename(config_path)
     shutil.copy2(config_path, osp.join(work_dir, name))

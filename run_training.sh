@@ -44,10 +44,12 @@ from custom import experiment
 cfg = experiment.load_config(sys.argv[2])
 print(cfg["__config_path__"])
 print(cfg["work_dir"])
+print(cfg.get("run_tag") or "")
 PY
 )
 CONFIG="${RESOLVED[0]}"
 WORK_DIR="${RESOLVED[1]}"
+RUN_TAG="${RESOLVED[2]}"
 echo "config:   $CONFIG"
 echo "work_dir: $WORK_DIR"
 
@@ -75,7 +77,7 @@ EOF
 
 CONFIG_BASENAME=$(basename "$CONFIG" .py)
 if [ "$USE_TMUX" = "Sim" ]; then
-    SESSION_NAME="${CONFIG_BASENAME}-$(date +%Y%m%d_%H%M%S)"
+    SESSION_NAME="${CONFIG_BASENAME}-${RUN_TAG:+$RUN_TAG-}$(date +%Y%m%d_%H%M%S)"
     tmux new-session -d -s "$SESSION_NAME" "bash '$INNER_SCRIPT'"
     echo "Training started in tmux session: $SESSION_NAME"
     echo "  attach:  tmux attach -t $SESSION_NAME"

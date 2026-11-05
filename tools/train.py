@@ -102,7 +102,7 @@ def main():
     cfg = exp.load_config(cli.config)
     work_dir = cfg["work_dir"]
     ts = exp.timestamp()
-    run_dir = exp.make_run_dir(work_dir, cfg["__config_path__"], ts)
+    run_dir = exp.make_run_dir(work_dir, cfg["__config_path__"], exp.run_name(cfg, ts))
     close_log = exp.install_tee(osp.join(run_dir, f"{ts}.log"))
     log_writer = wandb_run = None
     try:
@@ -179,7 +179,7 @@ def main():
         if cfg.get("wandb"):
             import wandb  # optional dependency: needed only by configs that set `wandb`
             stem = osp.splitext(osp.basename(cfg["__config_path__"]))[0]
-            wandb_run = wandb.init(name=f"{stem}-{ts}", config=vars(args), dir=run_dir, **cfg["wandb"])
+            wandb_run = wandb.init(name=f"{stem}-{exp.run_name(cfg, ts)}", config=vars(args), dir=run_dir, **cfg["wandb"])
             print(f"[train] wandb run {wandb_run.name} ({cfg['wandb']})")
 
         # --- cadence -----------------------------------------------------------

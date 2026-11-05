@@ -19,7 +19,7 @@
                published, fused-qkv pretrain checkpoint; omitted = the
                config's `load_from`, i.e. the point training would start from.
 
-Writes work_dir/compute_loss/<ts>-<checkpoint_stem>/:
+Writes work_dir/compute_loss/[<run_tag>-]<ts>-<checkpoint_stem>/:
   <ts>.log        console mirror
   <ts>.json       {config, checkpoint, dataset, mode, mask_ratio, seed,
                    mean_loss, per_sample: {stem: loss}}
@@ -73,7 +73,7 @@ def main():
         raise SystemExit(1)
     ckpt_stem = osp.splitext(osp.basename(checkpoint))[0]
     ts = exp.timestamp()
-    run_dir = osp.join(cfg["work_dir"], "compute_loss", f"{ts}-{ckpt_stem}")
+    run_dir = osp.join(cfg["work_dir"], "compute_loss", f"{exp.run_name(cfg, ts)}-{ckpt_stem}")
     os.makedirs(osp.join(run_dir, "vis_data"), exist_ok=True)
     close_log = exp.install_tee(osp.join(run_dir, f"{ts}.log"))
     try:

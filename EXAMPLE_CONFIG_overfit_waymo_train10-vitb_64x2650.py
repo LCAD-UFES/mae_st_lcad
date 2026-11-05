@@ -26,6 +26,7 @@ visualize_every_iterations = 900  # every 50 epochs; one call writes 18 videos, 
 fp32 = False  # mixed precision: 8480-token sequences are memory-heavy
 num_workers = 16
 seed = 0
+run_tag = "baseline"  # prefixes the run and compute_loss directories; optional
 
 # One clip per iteration, gradients accumulated over the whole slice: one optimizer
 # step per epoch on the full-set gradient. accum_iter must not exceed the
@@ -73,7 +74,8 @@ model_kwargs = dict(
 )
 
 work_dir = bootstrapper.work_dir_for(osp.splitext(osp.basename(__file__))[0])
-hooks = [ReconstructionVideoHook(mask_ratio=mask_ratio)]
+# panel_size=(H, W) resizes each of the four panels; None keeps the original size.
+hooks = [ReconstructionVideoHook(mask_ratio=mask_ratio, panel_size=None)]
 
 # Optional Weights & Biases logging (needs the wandb package); "offline" writes
 # under the run dir, for `wandb sync` from a machine with internet.
