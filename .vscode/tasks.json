@@ -47,7 +47,7 @@
             "id": "log_file",
             "type": "promptString",
             "description": "log_file: absolute path to scalars.json",
-            "default": "${env:HOME}/mae_st_experiments/work_dirs/mae_st_overfit_tests/overfit_range_lidar_slice10-vitb_64x2650/"
+            "default": "${env:HOME}/mae_st_experiments/work_dirs/"
         }
     ],
     "tasks": [

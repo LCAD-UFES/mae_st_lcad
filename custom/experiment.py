@@ -6,7 +6,7 @@ BEFORE any mae_st import -- which is why the drivers import this first and
 only then touch mae_st.
 
 Conventions implemented here (mirroring the sapiens/mmengine workspace),
-all under EXPERIMENTS_ROOT:
+all under EXPERIMENTS_ROOT/work_dirs/[<experiment_subdir>/]<config>/ (the work_dir):
   work_dir/<config>.py           verbatim config copy
   work_dir/last_checkpoint        one line, absolute path of the newest .pth
   work_dir/epoch_N.pth            N = epochs completed (1-based); pruned to max_keep
@@ -34,24 +34,34 @@ import torch
 # config / run directory / logging
 # ---------------------------------------------------------------------------
 
-REQUIRED_CONFIG_KEYS = ("work_dir", "model_name", "model_kwargs", "val_dataset",
+REQUIRED_CONFIG_KEYS = ("model_name", "model_kwargs", "val_dataset",
                         "hooks", "mask_ratio", "seed")
+NAME_PART = re.compile(r"[A-Za-z0-9_.+-]+")
 
 
 def load_config(path):
     """Execute a config file and return its namespace as a dict. A bare name
-    is looked up in EXPERIMENTS_ROOT/configs/."""
+    is looked up in EXPERIMENTS_ROOT/configs/. The work_dir is derived, not
+    configured: work_dirs/[<experiment_subdir>/]<config file name>/."""
     path = bs.resolve(path, bs.CONFIGS_DIR)
     ns = runpy.run_path(path)
     cfg = {k: v for k, v in ns.items() if not k.startswith("__")}
     missing = [k for k in REQUIRED_CONFIG_KEYS if k not in cfg]
     if missing:
         raise KeyError(f"config {path} lacks required keys: {missing}")
+    if "work_dir" in cfg:
+        raise KeyError(f"config {path} sets work_dir, which is derived from the config's file name; "
+                       "choose the folder under work_dirs/ with experiment_subdir instead")
     tag = cfg.get("run_tag")
-    if tag is not None and not (isinstance(tag, str) and re.fullmatch(r"[A-Za-z0-9_.+-]+", tag)):
+    if tag is not None and not (isinstance(tag, str) and NAME_PART.fullmatch(tag)):
         raise ValueError(f"config {path}: run_tag must be a non-empty string of letters, digits and _.+-, got {tag!r}")
+    subdir = cfg.get("experiment_subdir")
+    if subdir is not None and not (isinstance(subdir, str) and all(
+            NAME_PART.fullmatch(p) and p not in (".", "..") for p in subdir.split("/"))):
+        raise ValueError(f"config {path}: experiment_subdir must be a relative path of names made of "
+                         f"letters, digits and _.+-, got {subdir!r}")
     cfg["__config_path__"] = path
-    cfg["work_dir"] = osp.expanduser(cfg["work_dir"])
+    cfg["work_dir"] = osp.join(bs.WORK_DIRS, subdir or "", osp.splitext(osp.basename(path))[0])
     return cfg
 
 

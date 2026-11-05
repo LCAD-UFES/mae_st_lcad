@@ -13,7 +13,6 @@ class _Run:
 def init(**kw): return _Run()
 '''
 CONFIG = '''
-import os.path as osp
 import bootstrapper
 from custom.viz_hooks import ReconstructionVideoHook
 lr = min_lr = 1e-4; warmup_epochs = 0; mask_ratio = 0.5; max_epochs = 2
@@ -25,7 +24,7 @@ train_dataset = dict(mode="pretrain", **_common); val_dataset = dict(mode="val",
 model_name = "MaskedAutoencoderViT"
 model_kwargs = dict(img_size=({h}, {w}), patch_size=(4, 10), num_frames=4, t_patch_size=2, pred_t_dim=4, embed_dim=32, depth=1, num_heads=2,
                     decoder_embed_dim=16, decoder_depth=1, decoder_num_heads=2, mlp_ratio=2)
-work_dir = bootstrapper.work_dir_for(osp.splitext(osp.basename(__file__))[0])
+experiment_subdir = "e2e_tests"
 hooks = [ReconstructionVideoHook(mask_ratio=mask_ratio, fps=10)]
 wandb = dict(project="e2e", mode="offline")
 '''
@@ -57,7 +56,7 @@ class TrainEndToEndTest(unittest.TestCase):
 
     def test_train_then_compute_loss(self):
         self.run_tool("train.py", "e2e.py", "--tensorboard", "off")
-        work = os.path.join(self.tmp, "exp", "work_dirs", "mae_st_overfit_tests", "e2e")
+        work = os.path.join(self.tmp, "exp", "work_dirs", "e2e_tests", "e2e")
         read = lambda p: pathlib.Path(p).read_text()
         scalars = [json.loads(l) for l in read(glob.glob(os.path.join(work, "smoke-*", "vis_data", "scalars.json"))[0]).splitlines()]
         self.assertEqual([r["epoch"] for r in scalars], [1, 2])

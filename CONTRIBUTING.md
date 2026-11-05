@@ -43,11 +43,11 @@ The one rule: `bootstrapper` is imported before anything imports `mae_st`. `cust
 
 ### `bootstrapper.py`
 
-The whole setup, as a side effect of `import bootstrapper`: the four roots (this directory; `EXPERIMENTS_ROOT`, `MAE_ST_REPO_ROOT`, `DATASETS_ROOT` from defaults or `MAE_ST_*` variables), the tooling on `sys.path`, and the mae_st clone registered as the package `mae_st` whatever its directory name; a missing clone fails at import naming the variable to set. It also provides `work_dir_for(config_name)` and `resolve(path, base)`, the bare-name resolution every tool and prompt relies on.
+The whole setup, as a side effect of `import bootstrapper`: the four roots (this directory; `EXPERIMENTS_ROOT`, `MAE_ST_REPO_ROOT`, `DATASETS_ROOT` from defaults or `MAE_ST_*` variables), the tooling on `sys.path`, and the mae_st clone registered as the package `mae_st` whatever its directory name; a missing clone fails at import naming the variable to set. It also provides `resolve(path, base)`, the bare-name resolution every tool and prompt relies on.
 
 ### `custom/experiment.py`
 
-What `train.py` and `compute_loss.py` share. `load_config` runs the config with `runpy` and checks its required keys. `make_run_dir` creates `work_dir/<ts>/vis_data/` and copies the config verbatim. `install_tee` mirrors stdout/stderr into `<ts>.log`, upstream's prints included. `build_dataset` resolves `path_to_data_dir` against `DATASETS_ROOT`.
+What `train.py` and `compute_loss.py` share. `load_config` runs the config with `runpy`, checks its required keys and derives the work_dir, `work_dirs/[<experiment_subdir>/]<config file name>/`, refusing a config that sets `work_dir` itself. `make_run_dir` creates `work_dir/[<run_tag>-]<ts>/vis_data/` and copies the config verbatim. `install_tee` mirrors stdout/stderr into `<ts>.log`, upstream's prints included. `build_dataset` resolves `path_to_data_dir` against `DATASETS_ROOT`.
 
 **Deterministic validation.** `load_fixed_clips` decodes the validation clips once, under a fixed seed, and keeps them in memory. Three RNGs feed a sample (Python `random` for the temporal start, numpy for crops and flips, torch for the mask); re-seeding them every epoch would also reset the training shuffle. Freezing the clips and forking only the torch RNG around each evaluation (`fork_seeded`) gives identical validation masks from epoch to epoch without touching training randomness. That makes `val_loss` comparable over time, and is why `compute_loss` on `epoch_N.pth` reproduces exactly the `val_loss` that `train.py` logged.
 

@@ -38,8 +38,6 @@ MAE_ST_REPO_ROOT = osp.abspath(osp.expanduser(
 DATASETS_ROOT = osp.abspath(osp.expanduser(
     os.environ.get("MAE_ST_DATASETS", "~/datasets")))
 
-DATASET_PATH_PREFIX = "mae_st_overfit_tests"
-
 CONFIGS_DIR = osp.join(EXPERIMENTS_ROOT, "configs")
 WORK_DIRS = osp.join(EXPERIMENTS_ROOT, "work_dirs")
 CHECKPOINTS_DIR = osp.join(EXPERIMENTS_ROOT, "checkpoints")
@@ -61,11 +59,6 @@ def _register_mae_st(root):
 _prepend(TOOLING_ROOT)
 if "mae_st" not in sys.modules:
     _register_mae_st(MAE_ST_REPO_ROOT)
-
-
-def work_dir_for(config_name):
-    """work_dirs/<prefix>/<config name>/ under EXPERIMENTS_ROOT."""
-    return osp.join(WORK_DIRS, DATASET_PATH_PREFIX, config_name)
 
 
 def resolve(path, base):

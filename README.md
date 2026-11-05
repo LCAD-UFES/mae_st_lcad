@@ -62,7 +62,7 @@ From VSCode (`Terminal → Run Task…`), or the command each task runs:
 ### What a training leaves
 
 ```
-EXPERIMENTS_ROOT/work_dirs/mae_st_overfit_tests/<config>/
+EXPERIMENTS_ROOT/work_dirs/[<experiment_subdir>/]<config>/
 ├── <config>.py                 the config used
 ├── last_checkpoint             path of the newest epoch_N.pth
 ├── epoch_N.pth                 every save_every_epochs; the newest max_keep_ckpts (2) are kept
@@ -75,7 +75,7 @@ EXPERIMENTS_ROOT/work_dirs/mae_st_overfit_tests/<config>/
 └── compute_loss/[<run_tag>-]<timestamp>-<checkpoint>/   log, json with the losses, videos
 ```
 
-An optional `run_tag = "lr1e-3"` in the config prefixes the run and compute_loss directories (and the tmux session) so a group of runs is easy to find. It labels runs, not checkpoints: `epoch_N.pth` and `last_checkpoint` belong to the config, so a variant to compare against goes in a config with its own name.
+The config's file name names this directory; an optional `experiment_subdir = "overfit_tests"` (nested paths allowed) groups it with others under `work_dirs/`. An optional `run_tag = "lr1e-3"` prefixes the run and compute_loss directories (and the tmux session) so a group of runs is easy to find. It labels runs, not checkpoints: `epoch_N.pth` and `last_checkpoint` belong to the config, so a variant to compare against goes in a config with its own name.
 
 ### Resources
 

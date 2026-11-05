@@ -3,8 +3,8 @@
     python tools/plot_loss.py <scalars.json> [--output PATH]
 
 The input is a path, or a path relative to EXPERIMENTS_ROOT/work_dirs/ (e.g.
-`mae_st_overfit_tests/<config>/<ts>/vis_data/scalars.json`). A directory is
-accepted too: a run dir (`.../<ts>/`) plots its own scalars.json, a config's
+`overfit_tests/<config>/<run>/vis_data/scalars.json`). A directory is
+accepted too: a run dir (`.../<run>/`) plots its own scalars.json, a config's
 work_dir (`.../<config>/`) plots its most recent run. The file is JSON-lines:
 one record per epoch with at least {epoch, loss}; records carrying val_loss
 add a second curve. Malformed lines are skipped with a warning. Output

@@ -7,9 +7,7 @@
 # written on the training machine (lidar_sweep_viewer2 job prefix train10):
 #     python tools/prepare_dataset.py <DATASETS_ROOT>/waymo_open_dataset/videos --prefix train10 --out <DATASETS_ROOT>/waymo_open_dataset --min-frames 20
 
-import os.path as osp
-
-import bootstrapper
+import bootstrapper  # noqa: F401  (registers the mae_st clone)
 from custom.viz_hooks import ReconstructionVideoHook
 
 # --- What you tweak run to run ------------------------------------------------
@@ -26,6 +24,7 @@ visualize_every_iterations = 900  # every 50 epochs; one call writes 18 videos, 
 fp32 = False  # mixed precision: 8480-token sequences are memory-heavy
 num_workers = 16
 seed = 0
+experiment_subdir = "overfit_tests"  # work_dirs/<experiment_subdir>/<this file's name>/; optional
 run_tag = "baseline"  # prefixes the run and compute_loss directories; optional
 
 # One clip per iteration, gradients accumulated over the whole slice: one optimizer
@@ -73,7 +72,6 @@ model_kwargs = dict(
     norm_pix_loss=True,
 )
 
-work_dir = bootstrapper.work_dir_for(osp.splitext(osp.basename(__file__))[0])
 # panel_size=(H, W) resizes each of the four panels; None keeps the original size.
 hooks = [ReconstructionVideoHook(mask_ratio=mask_ratio, panel_size=None)]
 
