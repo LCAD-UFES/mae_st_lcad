@@ -34,6 +34,7 @@ Upstream no longer runs outside Meta's infrastructure on a current PyTorch. Thes
 | `0ff8edf` | the video decoder uses PyAV instead of torchvision's private in-memory reader | torchvision 0.26 removed that API |
 | `0ff8edf` | selective decoding counts frames from the stream's first timestamp | streams that do not start at pts 0 lost frames (one reference video returned 18 of 20) |
 | `b96edb6` | `torch.optim.AdamW` instead of the private `_multi_tensor.AdamW` | removed from recent PyTorch |
+| `daaab46` | attention uses `torch.nn.functional.scaled_dot_product_attention` instead of explicit q·kᵀ, softmax and ·v | the explicit form stores the whole attention matrix: at the 8480 tokens of a 64 x 2650 x 20 clip a ViT-B step took 3.3 s and 72 GB on a GB10, now 0.5 s and 4.9 GB (measured 2026-11-05); same weights, outputs equal to rounding |
 
 ## 4. Hooks for the tooling
 
@@ -52,5 +53,4 @@ python -m unittest discover -s tests -t .
 
 ## 6. Known open points
 
-- **Attention cost.** Attention is computed explicitly (q·kᵀ), quadratic in the 8480 tokens of a full 64 x 2650 x 20 clip: on a GB10 (DGX Spark) a ViT-B step takes ~3.7 s and 68 GB at batch 1 (measured 2026-10-29). `torch.nn.functional.scaled_dot_product_attention` is the candidate fix, to be measured.
 - **Deprecation warnings** from torch 2.11: `torch.cuda.amp.autocast` and `GradScaler` (`engine_pretrain.py`, `util/misc.py`).
