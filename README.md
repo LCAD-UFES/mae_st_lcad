@@ -79,7 +79,7 @@ The config's file name names this directory; an optional `experiment_subdir = "o
 
 ### Resources
 
-Measured 2026-10-29 on a DGX Spark (GB10) with the example config: 3.7 s per iteration at batch 1, 68 GB peak memory, ~89 s per epoch of 18 clips including validation, so ~74 h for 3000 epochs. A checkpoint is 1.3 GB; a visualization call writes ~35 MB and takes ~33 s, so keep `visualize_every_iterations` in the hundreds on long runs. `ReconstructionVideoHook(panel_size=(H, W))` resizes each of the four panels, larger to inspect or smaller to save disk.
+Measured 2026-11-06 on a DGX Spark (GB10) with the example config: 0.5 s per iteration at batch 1, 5 GB peak memory, ~18 s per epoch of 18 clips including validation (which runs in fp32 and takes about half of it), so ~15 h for 3000 epochs. `attn_impl="explicit"` in `model_kwargs` restores the attention of runs made before 2026-11-05, bit for bit and at their cost: 3.7 s per iteration, 68 GB, ~74 h. A checkpoint is 1.3 GB; a visualization call writes ~30 MB and takes ~15 s, so keep `visualize_every_iterations` in the hundreds on long runs. Two runs of one config do not give the same curve (see `DESIGN.md` §6 of `main`), so compare configurations over more than one run. `ReconstructionVideoHook(panel_size=(H, W))` resizes each of the four panels, larger to inspect or smaller to save disk.
 
 ## 3. Tests
 

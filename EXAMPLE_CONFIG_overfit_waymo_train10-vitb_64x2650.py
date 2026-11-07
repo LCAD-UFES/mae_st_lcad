@@ -70,6 +70,7 @@ model_kwargs = dict(
     decoder_depth=4,
     pred_t_dim=20,
     norm_pix_loss=True,
+    attn_impl="sdpa",  # "explicit" reproduces runs made before 2026-11-05, ~7x slower
 )
 
 # panel_size=(H, W) resizes each of the four panels; None keeps the original size.
