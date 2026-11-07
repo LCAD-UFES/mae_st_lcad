@@ -37,6 +37,7 @@ not need the wandb package.
 """
 
 import argparse
+import glob
 import os.path as osp
 import sys
 import time
@@ -101,6 +102,14 @@ def main():
 
     cfg = exp.load_config(cli.config)
     work_dir = cfg["work_dir"]
+    # Checkpoints belong to the work_dir, and pruning keeps the highest epochs: a fresh run
+    # next to an earlier run's checkpoints would delete each of its own right after saving it.
+    earlier = sorted(glob.glob(osp.join(work_dir, "epoch_*.pth")), key=exp._epoch_of)
+    if not cli.checkpoint.strip() and earlier:
+        raise SystemExit(f"[train] {work_dir} already holds checkpoints of an earlier run "
+                         f"(newest {osp.basename(earlier[-1])}). Resume it with --checkpoint last, "
+                         "or start a new run from a config with another file name, or move those "
+                         "checkpoints away first.")
     ts = exp.timestamp()
     run_dir = exp.make_run_dir(work_dir, cfg["__config_path__"], exp.run_name(cfg, ts))
     close_log = exp.install_tee(osp.join(run_dir, f"{ts}.log"))

@@ -66,6 +66,10 @@ class TrainEndToEndTest(unittest.TestCase):
         self.assertEqual([json.loads(l)["step"] for l in read(self.env["FAKE_WANDB_LOG"]).splitlines()], [1, 2])
         self.run_tool("compute_loss.py", "e2e.py", "--checkpoint", "last", "--dataset", "ds")
         self.assertEqual(len(glob.glob(os.path.join(work, "compute_loss", "smoke-*-epoch_2", "*.json"))), 1)
+        r = self.run_tool("train.py", "e2e.py", "--tensorboard", "off", check=False)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("already holds checkpoints", r.stderr)
+        self.assertEqual(len(glob.glob(os.path.join(work, "smoke-*"))), 1)  # refused before creating a run dir
 
     def test_accum_iter_larger_than_an_epoch_is_refused(self):
         r = self.run_tool("train.py", "bad_accum.py", "--tensorboard", "off", check=False)
