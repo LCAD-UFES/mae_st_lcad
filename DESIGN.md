@@ -35,6 +35,7 @@ Upstream no longer runs outside Meta's infrastructure on a current PyTorch. Thes
 | `0ff8edf` | selective decoding counts frames from the stream's first timestamp | streams that do not start at pts 0 lost frames (one reference video returned 18 of 20) |
 | `b96edb6` | `torch.optim.AdamW` instead of the private `_multi_tensor.AdamW` | removed from recent PyTorch |
 | `daaab46` | attention uses `torch.nn.functional.scaled_dot_product_attention` instead of explicit q·kᵀ, softmax and ·v | the explicit form stores the whole attention matrix: at the 8480 tokens of a 64 x 2650 x 20 clip a ViT-B step took 3.3 s and 72 GB on a GB10, now 0.5 s and 4.9 GB (measured 2026-11-05); same weights, outputs equal to rounding |
+| `d014b84` | `MaskedAutoencoderViT(attn_impl=...)`: `"sdpa"` (default) or `"explicit"`, the q·kᵀ form used before `daaab46` | `"explicit"` reproduces earlier runs bit for bit, at their cost (6.6x slower, 72 GB instead of 5 GB at 8480 tokens) |
 
 ## 4. Hooks for the tooling
 
@@ -53,4 +54,5 @@ python -m unittest discover -s tests -t .
 
 ## 6. Known open points
 
+- **Run-to-run variance.** The backward of the fused kernel is not deterministic: two runs of one config agree to about 6 digits for the first epochs, then drift apart. The explicit form is deterministic, but it is one draw of the same spread, not a better one. With the overfit recipe (one step per epoch on the whole slice, lr 1e-3, fp16, no clipping) the training is unstable enough that the spread is large: three identical fused-attention runs of train10 stood at a train loss of 0.63, 0.71 and 0.73 after 1800 epochs, the explicit run at 0.63 (measured 2026-11-07). One run per configuration cannot rank configurations; compare several, or use a stabler recipe.
 - **Deprecation warnings** from torch 2.11: `torch.cuda.amp.autocast` and `GradScaler` (`engine_pretrain.py`, `util/misc.py`).
