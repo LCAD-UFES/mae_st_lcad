@@ -82,9 +82,13 @@ class Attention(nn.Module):
         attn_drop=0.0,
         proj_drop=0.0,
         input_size=(4, 14, 14),
+        attn_impl="sdpa",
     ):
         super().__init__()
         assert dim % num_heads == 0, "dim should be divisible by num_heads"
+        if attn_impl not in ("sdpa", "explicit"):
+            raise ValueError(f"attn_impl must be 'sdpa' or 'explicit', got {attn_impl!r}")
+        self.attn_impl = attn_impl
         self.num_heads = num_heads
         head_dim = dim // num_heads
         self.scale = qk_scale or head_dim**-0.5
@@ -116,7 +120,11 @@ class Attention(nn.Module):
             .permute(0, 2, 1, 3)
         )
 
-        x = F.scaled_dot_product_attention(q, k, v, scale=self.scale).transpose(1, 2).reshape(B, N, C)
+        if self.attn_impl == "sdpa":
+            x = F.scaled_dot_product_attention(q, k, v, scale=self.scale)
+        else:  # materializes the N x N matrix: slower and heavier, kept to reproduce earlier runs
+            x = ((q @ k.transpose(-2, -1)) * self.scale).softmax(dim=-1) @ v
+        x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
         x = x.view(B, -1, C)

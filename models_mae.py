@@ -44,6 +44,7 @@ class MaskedAutoencoderViT(nn.Module):
         trunc_init=False,
         cls_embed=False,
         pred_t_dim=8,
+        attn_impl="sdpa",
         **kwargs,
     ):
         super().__init__()
@@ -98,6 +99,7 @@ class MaskedAutoencoderViT(nn.Module):
                     qkv_bias=not no_qkv_bias,
                     qk_scale=None,
                     norm_layer=norm_layer,
+                    attn_func=partial(video_vit.Attention, attn_impl=attn_impl),
                 )
                 for i in range(depth)
             ]
@@ -138,6 +140,7 @@ class MaskedAutoencoderViT(nn.Module):
                     qkv_bias=not no_qkv_bias,
                     qk_scale=None,
                     norm_layer=norm_layer,
+                    attn_func=partial(video_vit.Attention, attn_impl=attn_impl),
                 )
                 for i in range(decoder_depth)
             ]
