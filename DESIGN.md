@@ -39,14 +39,15 @@ Upstream no longer runs outside Meta's infrastructure on a current PyTorch. Thes
 
 ## 4. Hooks for the tooling
 
-The tooling in branch `mae_st_tooling` uses `main` as a library and does not edit it. Two small additions let it do so:
+The tooling in branch `mae_st_tooling` uses `main` as a library and does not edit it. Small additions let it do so:
 
 - `23c6eea`: `train_one_epoch(after_iter=None)` calls a callback after every step (visualizations every N iterations); `cuda.synchronize` is skipped on CPU.
 - `56e1139`: `Kinetics` no longer prints its whole argument dict on construction.
+- `a314891`: `lr_sched` reads `args.lr_cycles` (default 1): the cosine decay after warmup repeats that many times in equal periods, each restarting at `lr`. 1 is upstream's schedule bit for bit.
 
 ## 5. Tests
 
-`tests/` (stdlib `unittest`, CPU, a few seconds) covers the decoder, the rectangular model, the crops, the sampling positions, normalization, `csv_file` and the engine callback. Run from the clone, whatever its directory name:
+`tests/` (stdlib `unittest`, CPU, a few seconds) covers the decoder, the rectangular model, the crops, the sampling positions, normalization, `csv_file`, the engine callback and the lr schedule. Run from the clone, whatever its directory name:
 
 ```bash
 python -m unittest discover -s tests -t .
