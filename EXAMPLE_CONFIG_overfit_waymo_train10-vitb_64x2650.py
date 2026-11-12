@@ -11,10 +11,12 @@ import bootstrapper  # noqa: F401  (registers the mae_st clone)
 from custom.viz_hooks import ReconstructionVideoHook
 
 # --- What you tweak run to run ------------------------------------------------
-# Warmup, then half-cycle cosine from lr to min_lr (upstream lr_sched).
+# Warmup, then half-cycle cosine from lr to min_lr (upstream lr_sched),
+# repeated lr_cycles times over the remaining epochs (1 = upstream's single decay).
 lr = 1e-3
 min_lr = 1e-4
 warmup_epochs = 5
+lr_cycles = 1
 weight_decay = 0.0  # no regularization: the goal is to memorize
 bias_wd = False
 mask_ratio = 0.3

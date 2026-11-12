@@ -47,8 +47,8 @@ class TrainEndToEndTest(unittest.TestCase):
         for i in range(2): write_video(os.path.join(ds, f"clip_{i}.mp4"))
         cls.run_tool("prepare_dataset.py", ds)
         os.makedirs(os.path.join(cls.tmp, "exp", "configs"))
-        for name, accum in (("e2e", 1), ("bad_accum", 5)):
-            pathlib.Path(cls.tmp, "exp", "configs", f"{name}.py").write_text(textwrap.dedent(CONFIG.format(accum=accum, h=H, w=W)))
+        for name, accum, extra in (("e2e", 1, ""), ("bad_accum", 5, ""), ("bad_cycles", 1, "lr_cycles = 0\n")):
+            pathlib.Path(cls.tmp, "exp", "configs", f"{name}.py").write_text(textwrap.dedent(CONFIG.format(accum=accum, h=H, w=W)) + extra)
 
     @classmethod
     def run_tool(cls, tool, *args, check=True):
@@ -75,5 +75,10 @@ class TrainEndToEndTest(unittest.TestCase):
         r = self.run_tool("train.py", "bad_accum.py", "--tensorboard", "off", check=False)
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("never step", r.stderr)
+
+    def test_lr_cycles_below_one_is_refused(self):
+        r = self.run_tool("train.py", "bad_cycles.py", "--tensorboard", "off", check=False)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertIn("lr_cycles=0 must be an int >= 1", r.stderr)
 
 if __name__ == "__main__": unittest.main()

@@ -58,6 +58,9 @@ from mae_st.engine_pretrain import train_one_epoch  # noqa: E402
 def build_engine_args(cfg, work_dir):
     """The argparse.Namespace the mae_st engine / lr_sched / misc read."""
     eff_batch = cfg["batch_size"] * cfg.get("repeat_aug", 1) * cfg.get("accum_iter", 1)
+    lr_cycles = cfg.get("lr_cycles", 1)
+    if type(lr_cycles) is not int or lr_cycles < 1:
+        raise ValueError(f"lr_cycles={lr_cycles!r} must be an int >= 1")
     lr = cfg.get("lr")
     if lr is None:
         lr = cfg["blr"] * eff_batch / 256  # upstream linear scaling rule
@@ -78,6 +81,7 @@ def build_engine_args(cfg, work_dir):
         min_lr=cfg["min_lr"],
         warmup_epochs=cfg["warmup_epochs"],
         epochs=cfg["max_epochs"],
+        lr_cycles=lr_cycles,
         # provenance only (stored in the checkpoint)
         batch_size=cfg["batch_size"],
         seed=cfg["seed"],
@@ -163,7 +167,7 @@ def main():
         optimizer = torch.optim.AdamW(param_groups, lr=args.lr,
                                       betas=tuple(cfg.get("betas", (0.9, 0.95))))
         loss_scaler = misc.NativeScalerWithGradNormCount(fp32=args.fp32)
-        print(f"[train] lr {args.lr:.2e} (min {args.min_lr:.2e}, warmup {args.warmup_epochs})")
+        print(f"[train] lr {args.lr:.2e} (min {args.min_lr:.2e}, warmup {args.warmup_epochs}, cycles {args.lr_cycles})")
 
         # --- resume ------------------------------------------------------------
         start_epoch = 0
